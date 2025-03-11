@@ -39,16 +39,28 @@
     },
     methods: {
       login() {
+        // 验证输入
+        if (!this.username.trim()) {
+          alert('请输入用户名');
+          return;
+        }
+        if (!this.password.trim()) {
+          alert('请输入密码');
+          return;
+        }
+        
         // 这里应该有实际的登录逻辑，比如API调用
         // 简化示例：根据选择的角色导航到不同页面
         localStorage.setItem('userRole', this.role);
         localStorage.setItem('username', this.username);
+        // 模拟存储用户邮箱信息 (用于显示在导航栏)
+        localStorage.setItem('userEmail', `${this.username}@example.com`);
         
-        if (this.role === 'teacher') {
-          this.$router.push('/teacher');
-        } else {
-          this.$router.push('/student');
-        }
+        // 获取重定向URL，如果没有则使用默认路径
+        const redirectPath = this.$route.query.redirect || `/${this.role}/home`;
+        
+        // 跳转到对应页面
+        this.$router.push(redirectPath);
       }
     }
   }
