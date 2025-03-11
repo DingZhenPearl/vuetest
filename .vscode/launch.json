@@ -1,0 +1,17 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "msedge",
+      "request": "launch",
+      "name": "使用Edge调试Vue",
+      "url": "http://localhost:8080",
+      "webRoot": "${workspaceFolder}",
+      "sourceMaps": true,
+      "sourceMapPathOverrides": {
+        "webpack:///src/*": "${webRoot}/src/*"
+      },
+      "preLaunchTask": "serve"
+    }
+  ]
+}
