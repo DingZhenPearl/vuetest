@@ -114,7 +114,7 @@
         
         try {
           // 调用登录API
-          const response = await fetch('/login', {
+          const response = await fetch('/api/auth/login', { // 更新API路径
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -170,7 +170,7 @@
         
         try {
           // 调用注册API
-          const response = await fetch('/register', {
+          const response = await fetch('/api/auth/register', { // 更新API路径
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

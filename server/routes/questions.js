@@ -8,7 +8,7 @@ const { executePythonScript } = require('../services/python');
 /**
  * 学生提交问题
  */
-router.post('/submit-question', async (req, res) => {
+router.post('/submit', async (req, res) => {
     try {
         const { email, title, content } = req.body;
         const result = await executePythonScript('qa_operations.py', [
@@ -27,7 +27,7 @@ router.post('/submit-question', async (req, res) => {
 /**
  * 获取特定学生的问题列表
  */
-router.get('/questions/:email', async (req, res) => {
+router.get('/student/:email', async (req, res) => {
     try {
         const email = req.params.email;
         const result = await executePythonScript('qa_operations.py', [
@@ -44,7 +44,7 @@ router.get('/questions/:email', async (req, res) => {
 /**
  * 获取所有学生问题（供教师使用）
  */
-router.get('/all-questions', async (req, res) => {
+router.get('/all', async (req, res) => {
     try {
         const result = await executePythonScript('qa_operations.py', ['get_all_questions']);
         res.json(result);
@@ -57,7 +57,7 @@ router.get('/all-questions', async (req, res) => {
 /**
  * 教师提交回答
  */
-router.post('/submit-answer', async (req, res) => {
+router.post('/answer', async (req, res) => {
     try {
         const { questionId, answer } = req.body;
         const result = await executePythonScript('qa_operations.py', [
@@ -75,7 +75,7 @@ router.post('/submit-answer', async (req, res) => {
 /**
  * 删除问题
  */
-router.delete('/question/:id', async (req, res) => {
+router.delete('/:id', async (req, res) => {
     try {
         const questionId = req.params.id;
         const result = await executePythonScript('qa_operations.py', [
@@ -92,7 +92,7 @@ router.delete('/question/:id', async (req, res) => {
 /**
  * 更新问题
  */
-router.put('/question/:id', async (req, res) => {
+router.put('/:id', async (req, res) => {
     try {
         const questionId = req.params.id;
         const { title, content } = req.body;

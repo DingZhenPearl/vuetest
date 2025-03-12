@@ -47,7 +47,7 @@ export default {
       this.resultError = null;
       
       try {
-        const response = await fetch('/run-script', { 
+        const response = await fetch('/api/python/run', { // 更新API路径
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'

@@ -112,7 +112,7 @@ export default {
     async loadQuestions() {
       this.loading = true
       try {
-        const response = await fetch(`/api/questions/${this.userEmail}`)
+        const response = await fetch(`/api/questions/student/${this.userEmail}`) // 更新API路径
         const data = await response.json()
         
         if (data.success && Array.isArray(data.questions)) {
@@ -147,7 +147,7 @@ export default {
         
         if (this.isEditMode) {
           // 更新现有问题
-          response = await fetch(`/api/question/${this.currentEditId}`, {
+          response = await fetch(`/api/questions/${this.currentEditId}`, {
             method: 'PUT',
             headers: {
               'Content-Type': 'application/json'
@@ -159,7 +159,7 @@ export default {
           })
         } else {
           // 创建新问题
-          response = await fetch('/api/submit-question', {
+          response = await fetch('/api/questions/submit', { // 更新API路径
             method: 'POST',
             headers: {
               'Content-Type': 'application/json'
@@ -196,7 +196,7 @@ export default {
       }
       
       try {
-        const response = await fetch(`/api/question/${questionId}`, {
+        const response = await fetch(`/api/questions/${questionId}`, { // 更新API路径
           method: 'DELETE'
         })
         const data = await response.json()
@@ -248,7 +248,7 @@ export default {
       this.isSubmittingFollowUp = true
       
       try {
-        const response = await fetch('/api/follow-up', {
+        const response = await fetch('/api/questions/follow-up', { // 更新API路径
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ questionId, content })

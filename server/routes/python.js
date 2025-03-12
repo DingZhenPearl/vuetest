@@ -9,7 +9,7 @@ const { spawn } = require('child_process');
 /**
  * 执行Python脚本测试
  */
-router.post('/run-script', (req, res) => {
+router.post('/run', (req, res) => {
     // 使用相对路径定位analyse.py
     const scriptPath = path.join(__dirname, '..', '..', 'src', 'services', 'analyse.py');
     

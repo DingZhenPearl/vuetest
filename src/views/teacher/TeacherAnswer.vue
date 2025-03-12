@@ -110,7 +110,7 @@ export default {
     async loadAllQuestions() {
       this.loading = true
       try {
-        const response = await fetch('/api/all-questions')
+        const response = await fetch('/api/questions/all') // 更新API路径
         const data = await response.json()
         
         if (data.success && Array.isArray(data.questions)) {
@@ -143,7 +143,7 @@ export default {
       this.submittingAnswer = true
       
       try {
-        const response = await fetch('/api/submit-answer', {
+        const response = await fetch('/api/questions/answer', { // 更新API路径
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -191,7 +191,7 @@ export default {
       this.submittingFollowUp = true
       
       try {
-        const response = await fetch('/api/follow-up-answer', {
+        const response = await fetch('/api/questions/follow-up-answer', { // 更新API路径
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'

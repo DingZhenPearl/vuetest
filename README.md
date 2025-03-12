@@ -1,3 +1,6 @@
+# 创建虚拟环境
+本项目由两个子项目构成，本子项目实现网页的前后端设计，另一个子项目实现vscode插件的设计。
+
 # vuetest
 
 ## Project setup
@@ -42,3 +45,4 @@ pip install -r requirements.txt
 
 # 更新所需依赖
 pip freeze > requirements.txt
+

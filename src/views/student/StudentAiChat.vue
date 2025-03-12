@@ -122,7 +122,7 @@ export default {
       this.showTypingIndicator()
       
       try {
-        const response = await fetch('/api/chat-message', {
+        const response = await fetch('/api/chat/message', { // 更新API路径
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -170,7 +170,7 @@ export default {
       }
 
       try {
-        const response = await fetch('/api/chat-history', {
+        const response = await fetch('/api/chat/history', { // 更新API路径
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -247,7 +247,7 @@ export default {
     async saveChat() {
       const userEmail = localStorage.getItem('userEmail')
       try {
-        const response = await fetch('/api/save-chat', {
+        const response = await fetch('/api/chat/save', { // 更新API路径
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -267,7 +267,7 @@ export default {
     // 更新现有聊天记录
     async updateChat() {
       try {
-        await fetch('/api/update-chat', {
+        await fetch('/api/chat/update', { // 更新API路径
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'

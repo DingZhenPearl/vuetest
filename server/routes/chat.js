@@ -10,7 +10,7 @@ const { generateAIResponse } = require('../services/ai');
  * 处理聊天消息
  * 接收用户消息，调用AI模型生成回复
  */
-router.post('/chat-message', async (req, res) => {
+router.post('/message', async (req, res) => {
     try {
         const { message, messageHistory } = req.body;
         
@@ -34,7 +34,7 @@ router.post('/chat-message', async (req, res) => {
 /**
  * 获取用户聊天历史记录
  */
-router.post('/chat-history', async (req, res) => {
+router.post('/history', async (req, res) => {
     try {
         const { email } = req.body;
         const result = await executePythonScript('chat_history.py', ['get_history', email]);
@@ -59,7 +59,7 @@ router.post('/chat-history', async (req, res) => {
 /**
  * 保存新的聊天记录
  */
-router.post('/save-chat', async (req, res) => {
+router.post('/save', async (req, res) => {
     try {
         const { email, messages } = req.body;
         const result = await executePythonScript('chat_history.py', [
@@ -77,7 +77,7 @@ router.post('/save-chat', async (req, res) => {
 /**
  * 获取特定聊天记录详情
  */
-router.get('/chat/:id', async (req, res) => {
+router.get('/:id', async (req, res) => {
     try {
         const chatId = req.params.id;
         const result = await executePythonScript('chat_history.py', ['get_chat', chatId]);
@@ -102,7 +102,7 @@ router.get('/chat/:id', async (req, res) => {
 /**
  * 删除特定聊天记录
  */
-router.delete('/chat/:id', async (req, res) => {
+router.delete('/:id', async (req, res) => {
     try {
         const chatId = req.params.id;
         const result = await executePythonScript('chat_history.py', ['delete_chat', chatId]);
@@ -116,7 +116,7 @@ router.delete('/chat/:id', async (req, res) => {
 /**
  * 更新特定聊天记录
  */
-router.post('/update-chat', async (req, res) => {
+router.post('/update', async (req, res) => {
     try {
         const { chatId, messages } = req.body;
         const result = await executePythonScript('chat_history.py', [

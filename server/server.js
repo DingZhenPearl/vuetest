@@ -16,6 +16,7 @@ const authRoutes = require('./routes/auth');
 const chatRoutes = require('./routes/chat');
 const questionsRoutes = require('./routes/questions');
 const pythonRoutes = require('./routes/python');
+const codingRoutes = require('./routes/coding'); // 新增编程数据路由
 
 // 初始化Express应用
 const app = express();
@@ -28,15 +29,12 @@ console.log('静态文件路径:', staticRoot);
 // 配置中间件
 setupMiddlewares(app, staticRoot);
 
-// 注册路由
-// 认证路由
-app.use('/', authRoutes);
-// API路由 - 聊天功能
-app.use('/api', chatRoutes);
-// API路由 - 问答系统
-app.use('/api', questionsRoutes);
-// API路由 - Python脚本执行
-app.use('/', pythonRoutes);
+// 注册路由 - 所有API路由统一使用/api前缀
+app.use('/api/auth', authRoutes);
+app.use('/api/chat', chatRoutes);
+app.use('/api/questions', questionsRoutes);
+app.use('/api/python', pythonRoutes);
+app.use('/api/coding', codingRoutes); // 注册新路由
 
 // 基本路由 - 首页
 app.get('/', (req, res) => {
@@ -47,7 +45,7 @@ app.get('/', (req, res) => {
 // 所有未匹配的路由都发送index.html
 app.get('*', (req, res, next) => {
     // 排除API和静态文件路径
-    if (req.path.startsWith('/api') || req.path === '/login' || req.path === '/register' || req.path.includes('.')) {
+    if (req.path.startsWith('/api') || req.path.includes('.')) {
         return next();
     }
     res.sendFile(path.join(staticRoot, 'index.html'));
