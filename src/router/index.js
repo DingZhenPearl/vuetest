@@ -3,6 +3,7 @@ import Login from '../views/LogIn.vue'
 import TeacherHome from '../views/teacher/teacherHome.vue'
 import StudentHome from '../views/student/studentHome.vue'
 import StudentAiChat from '../views/student/StudentAiChat.vue' // 导入新组件
+import StudentQuestion from '../views/student/StudentQuestion.vue'
 
 const routes = [
   {
@@ -51,13 +52,13 @@ const routes = [
     component: () => import('../views/teacher/TeacherAnalysis.vue'),
     meta: { requiresAuth: true, role: 'teacher' }
   },
+  */
   {
     path: '/teacher/answer',
     name: 'teacherAnswer',
     component: () => import('../views/teacher/TeacherAnswer.vue'),
     meta: { requiresAuth: true, role: 'teacher' }
   },
-  */
   {
     path: '/teacher/python',
     name: 'teacherPython',
@@ -83,6 +84,12 @@ const routes = [
     component: StudentAiChat,
     meta: { requiresAuth: true, role: 'student' }
   },
+  {
+    path: '/student/question',
+    name: 'studentQuestion',
+    component: StudentQuestion,
+    meta: { requiresAuth: true, role: 'student' }
+  },
   /* 暂时注释掉尚未创建的学生页面
   {
     path: '/student/exams',
@@ -102,12 +109,7 @@ const routes = [
     component: () => import('../views/student/StudentGrades.vue'),
     meta: { requiresAuth: true, role: 'student' }
   },
-  {
-    path: '/student/question',
-    name: 'studentQuestion',
-    component: () => import('../views/student/StudentQuestion.vue'),
-    meta: { requiresAuth: true, role: 'student' }
-  },
+
 
   */
   // 404页面
