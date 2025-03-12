@@ -15,6 +15,10 @@ const OpenAI = require('openai');
 const app = express();
 const port = 3000;
 
+// 首先定义静态文件路径（修复顺序问题）
+const staticRoot = path.resolve(path.join(__dirname, '..', 'dist'));
+console.log('静态文件路径:', staticRoot);
+
 // ===== 中间件配置 =====
 app.use(cors({
     origin: '*',
@@ -23,8 +27,7 @@ app.use(cors({
 }));
 app.use(bodyParser.json());
 
-// 前端静态文件托管
-const staticRoot = path.join('D:', 'Microsoft VS Code', 'projects', 'web', 'html1', 'pages');
+// 静态文件服务中间件
 app.use(express.static(staticRoot));
 
 // ===== 工具函数 =====
@@ -54,8 +57,11 @@ function getIPAddress() {
  * @returns {Promise} 脚本执行结果的Promise对象
  */
 function executePythonScript(scriptName, args) {
+    // 脚本文件的完整路径
+    const scriptPath = path.join('D:', 'Microsoft VS Code', 'projects', 'web', 'vuetest', 'src', 'services', scriptName);
+    
     return new Promise((resolve, reject) => {
-        const pythonProcess = spawn('python', [scriptName, ...args]);
+        const pythonProcess = spawn('python', [scriptPath, ...args]);
         let result = '';
         let error = '';
 
@@ -91,7 +97,7 @@ const openai = new OpenAI({
 
 // --- 基本路由 ---
 app.get('/', (req, res) => {
-    res.sendFile(path.join(staticRoot, '/logIn/logIn.html'));
+    res.sendFile(path.join(staticRoot, 'index.html'));
 });
 
 // --- 用户认证路由 ---
@@ -424,6 +430,16 @@ app.post('/run-script', (req, res) => {
             res.json({ status: 'success', result: result.trim() });
         }
     });
+});
+
+// 放在所有API路由之后，添加Vue SPA支持
+// 所有未匹配的路由都发送index.html
+app.get('*', (req, res, next) => {
+    // 排除API和静态文件路径
+    if (req.path.startsWith('/api') || req.path === '/login' || req.path === '/register' || req.path.includes('.')) {
+        return next();
+    }
+    res.sendFile(path.join(staticRoot, 'index.html'));
 });
 
 // ===== 启动服务器 =====

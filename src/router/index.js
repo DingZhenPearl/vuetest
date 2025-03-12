@@ -1,16 +1,16 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import Login from '../views/logIn.vue'
+import Login from '../views/LogIn.vue'
 import TeacherHome from '../views/teacher/teacherHome.vue'
 import StudentHome from '../views/student/studentHome.vue'
 
 const routes = [
   {
     path: '/',
-    redirect: '/logIn'
+    redirect: '/LogIn'
   },
   {
-    path: '/logIn',
-    name: 'logIn',
+    path: '/LogIn',
+    name: 'LogIn',
     component: Login
   },
   // 教师相关路由
