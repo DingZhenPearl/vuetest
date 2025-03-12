@@ -1,15 +1,16 @@
 <template>
   <div class="sidebar">
     <h2 id="userEmail">{{ userEmail || '加载中...' }}</h2>
-    <a href="#" @click.prevent="goToHome">主页</a>
-    <a href="#" @click.prevent="goToExams">习题集</a>
-    <a href="#" @click.prevent="explainProgrammingConcepts">编程概念讲解</a>
-    <a href="#" @click.prevent="caseAnalysis">实战案例分析</a>
-    <a href="#" @click.prevent="goToQuestion">提问</a>
-    <a href="#" @click.prevent="troubleshooting">疑难解答</a>
-    <a href="#" @click.prevent="learningBehaviorAnalysis">学习行为分析</a>
-    <a href="#" @click.prevent="goToAiChat">AI对话</a>
-    <a href="#" @click.prevent="logout">退出登录</a>
+    <router-link to="/student" >主页</router-link>
+    <router-link to="/student/profile" >个人信息</router-link>
+    <router-link to="/student/exams" >习题集</router-link>
+    <router-link to="#" @click.prevent="explainProgrammingConcepts">编程概念讲解</router-link>
+    <router-link to="#" @click.prevent="caseAnalysis">实战案例分析</router-link>
+    <router-link to="/student/question" >提问</router-link>
+    <router-link to="#" @click.prevent="troubleshooting">疑难解答</router-link>
+    <router-link to="#" @click.prevent="learningBehaviorAnalysis">学习行为分析</router-link>
+    <router-link to="/student/aiChat" >AI对话</router-link>
+    <router-link to="#" @click.prevent="logout">退出登录</router-link>
   </div>
 </template>
 
@@ -22,40 +23,27 @@ export default {
     }
   },
   created() {
-    this.initializeUserData()
+    // 从本地存储获取用户邮箱
+    this.userEmail = localStorage.getItem('userEmail') || '未登录用户';
   },
   methods: {
-    initializeUserData() {
-      // 从localStorage获取用户邮箱
-      this.userEmail = localStorage.getItem('userEmail') || '未登录'
-    },
-    goToHome() {
-      this.$router.push('/student')
-    },
-    goToExams() {
-      this.$router.push('/student/exams')
-    },
-    goToQuestion() {
-      this.$router.push('/student/question')
-    },
-    goToAiChat() {
-      this.$router.push('/student/aiChat')
-    },
     explainProgrammingConcepts() {
-      alert('编程概念讲解功能尚未实现')
+      alert('编程概念讲解功能尚未实现');
     },
     caseAnalysis() {
-      alert('实战案例分析功能尚未实现')
+      alert('实战案例分析功能尚未实现');
     },
     troubleshooting() {
-      alert('疑难解答功能尚未实现')
+      alert('疑难解答功能尚未实现');
     },
     learningBehaviorAnalysis() {
-      alert('学习行为分析功能尚未实现')
+      alert('学习行为分析功能尚未实现');
     },
     logout() {
-      localStorage.removeItem('userEmail')
-      this.$router.push('/login')
+      localStorage.removeItem('userEmail');
+      localStorage.removeItem('username');
+      localStorage.removeItem('userRole');
+      this.$router.push('/logIn');
     }
   }
 }

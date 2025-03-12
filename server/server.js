@@ -16,7 +16,8 @@ const authRoutes = require('./routes/auth');
 const chatRoutes = require('./routes/chat');
 const questionsRoutes = require('./routes/questions');
 const pythonRoutes = require('./routes/python');
-const codingRoutes = require('./routes/coding'); // 新增编程数据路由
+// const codingRoutes = require('./routes/coding');
+const profileRoutes = require('./routes/profile'); // 新增个人信息路由
 
 // 初始化Express应用
 const app = express();
@@ -34,7 +35,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/questions', questionsRoutes);
 app.use('/api/python', pythonRoutes);
-app.use('/api/coding', codingRoutes); // 注册新路由
+// app.use('/api/coding', codingRoutes);
+app.use('/api/profile', profileRoutes); // 注册新路由
 
 // 基本路由 - 首页
 app.get('/', (req, res) => {
