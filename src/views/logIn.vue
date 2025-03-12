@@ -2,42 +2,39 @@
     <div class="login-container">
       <h1>教育管理系统</h1>
       <div class="login-form">
-        <h2>用户登录</h2>
+        <h2>{{ showRegisterForm ? '用户注册' : '用户登录' }}</h2>
         <div v-if="error" class="error-message">
           {{ error }}
         </div>
-        <div class="form-group">
-          <label>用户名</label>
-          <input type="text" v-model="username" placeholder="请输入用户名">
-        </div>
-        <div class="form-group">
-          <label>密码</label>
-          <input type="password" v-model="password" placeholder="请输入密码">
-        </div>
-        <div class="form-group role-select">
-          <label>身份</label>
-          <div class="role-buttons">
-            <button 
-              :class="['role-btn', { active: role === 'teacher' }]" 
-              @click="role = 'teacher'">老师</button>
-            <button 
-              :class="['role-btn', { active: role === 'student' }]" 
-              @click="role = 'student'">学生</button>
-          </div>
-        </div>
-        <button class="login-btn" @click="login" :disabled="isLoading">
-          {{ isLoading ? '登录中...' : '登录' }}
-        </button>
         
-        <div class="toggle-form">
-          <a href="#" @click.prevent="showRegisterForm = !showRegisterForm">
-            {{ showRegisterForm ? '已有账号？立即登录' : '没有账号？立即注册' }}
-          </a>
+        <!-- 登录表单 -->
+        <div v-if="!showRegisterForm">
+          <div class="form-group">
+            <label>用户名</label>
+            <input type="text" v-model="username" placeholder="请输入用户名">
+          </div>
+          <div class="form-group">
+            <label>密码</label>
+            <input type="password" v-model="password" placeholder="请输入密码">
+          </div>
+          <div class="form-group role-select">
+            <label>身份</label>
+            <div class="role-buttons">
+              <button 
+                :class="['role-btn', { active: role === 'teacher' }]" 
+                @click="role = 'teacher'">老师</button>
+              <button 
+                :class="['role-btn', { active: role === 'student' }]" 
+                @click="role = 'student'">学生</button>
+            </div>
+          </div>
+          <button class="login-btn" @click="login" :disabled="isLoading">
+            {{ isLoading ? '登录中...' : '登录' }}
+          </button>
         </div>
         
         <!-- 注册表单 -->
-        <div v-if="showRegisterForm" class="register-form">
-          <h3>用户注册</h3>
+        <div v-if="showRegisterForm">
           <div class="form-group">
             <label>用户名</label>
             <input type="text" v-model="registerUsername" placeholder="请输入用户名">
@@ -65,6 +62,12 @@
             {{ isRegistering ? '注册中...' : '注册' }}
           </button>
         </div>
+        
+        <div class="toggle-form">
+          <a href="#" @click.prevent="toggleForm">
+            {{ showRegisterForm ? '已有账号？立即登录' : '没有账号？立即注册' }}
+          </a>
+        </div>
       </div>
     </div>
   </template>
@@ -90,6 +93,11 @@
       }
     },
     methods: {
+      toggleForm() {
+        this.showRegisterForm = !this.showRegisterForm;
+        this.error = ''; // 切换表单时清空错误信息
+      },
+      
       async login() {
         // 验证输入
         if (!this.username.trim()) {
@@ -124,7 +132,7 @@
             // 登录成功，存储用户信息
             localStorage.setItem('userRole', this.role);
             localStorage.setItem('username', this.username);
-            localStorage.setItem('userEmail', `${this.username}@example.com`);
+            localStorage.setItem('userEmail', `${this.username}`);
             
             // 获取重定向URL，如果没有则使用默认路径
             const redirectPath = this.$route.query.redirect || `/${this.role}/home`;

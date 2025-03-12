@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import Login from '../views/LogIn.vue'
 import TeacherHome from '../views/teacher/teacherHome.vue'
 import StudentHome from '../views/student/studentHome.vue'
+import StudentAiChat from '../views/student/StudentAiChat.vue' // 导入新组件
 
 const routes = [
   {
@@ -76,6 +77,12 @@ const routes = [
     component: StudentHome,
     meta: { requiresAuth: true, role: 'student' }
   },
+  {
+    path: '/student/aiChat',
+    name: 'studentAiChat',
+    component: StudentAiChat,
+    meta: { requiresAuth: true, role: 'student' }
+  },
   /* 暂时注释掉尚未创建的学生页面
   {
     path: '/student/exams',
@@ -101,12 +108,7 @@ const routes = [
     component: () => import('../views/student/StudentQuestion.vue'),
     meta: { requiresAuth: true, role: 'student' }
   },
-  {
-    path: '/student/aiChat',
-    name: 'studentAiChat',
-    component: () => import('../views/student/StudentAiChat.vue'),
-    meta: { requiresAuth: true, role: 'student' }
-  },
+
   */
   // 404页面
   {

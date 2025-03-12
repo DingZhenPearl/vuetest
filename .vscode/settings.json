@@ -1,0 +1,27 @@
+{
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/Scripts/python.exe",
+    "python.terminal.activateEnvironment": true,
+    "python.terminal.activateEnvInCurrentTerminal": true,
+    "terminal.integrated.defaultProfile.windows": "Python Env",
+    "terminal.integrated.profiles.windows": {
+        "PowerShell": {
+            "source": "PowerShell",
+            "icon": "terminal-powershell",
+            "args": ["-ExecutionPolicy", "Bypass"]
+        },
+        "Python Env": {
+            "source": "PowerShell",
+            "icon": "terminal-powershell",
+            "args": ["-ExecutionPolicy", "Bypass", "-NoExit", "-Command", "& '${workspaceFolder}\\.venv\\Scripts\\Activate.ps1'"]
+        }
+    },
+    // 添加这个设置以确保Python扩展能正确识别虚拟环境
+    "python.venvPath": "${workspaceFolder}/.venv",
+    
+    // 添加以下新设置来解决自动激活问题
+    "python.terminal.executeInFileDir": false,
+    "python.terminal.launchArgs": [],
+    
+    // 以下是新版VS Code Python扩展的设置
+    "python.analysis.extraPaths": ["${workspaceFolder}/.venv/Lib/site-packages"]
+}

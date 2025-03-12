@@ -123,11 +123,11 @@ app.post('/login', async (req, res) => {
         if (result.success) {
             res.json({ success: true, message: '登录成功' });
         } else {
-            res.status(401).json({ success: false, message: '邮箱或密码错误' });
+            res.status(401).json({ success: false, message: result.message || '邮箱或密码错误' });
         }
     } catch (error) {
-        console.error('登录错误:', error);
-        res.status(500).json({ success: false, message: '服务器错误' });
+        console.error('登录错误详情:', error);
+        res.status(500).json({ success: false, message: `服务器错误: ${error.message}` });
     }
 });
 
@@ -195,7 +195,18 @@ app.post('/api/chat-history', async (req, res) => {
     try {
         const { email } = req.body;
         const result = await executePythonScript('chat_history.py', ['get_history', email]);
-        res.json(result);
+        
+        // 确保我们返回的是解析后的JSON数据，而不是字符串
+        if (typeof result === 'string') {
+            try {
+                res.json(JSON.parse(result));
+            } catch (parseError) {
+                console.error('解析历史记录JSON失败:', parseError);
+                res.json([]);
+            }
+        } else {
+            res.json(result);
+        }
     } catch (error) {
         console.error('获取聊天历史失败:', error);
         res.status(500).json({ success: false, message: '服务器错误' });
@@ -227,7 +238,18 @@ app.get('/api/chat/:id', async (req, res) => {
     try {
         const chatId = req.params.id;
         const result = await executePythonScript('chat_history.py', ['get_chat', chatId]);
-        res.json(result);
+        
+        // 确保我们返回的是解析后的JSON数据，而不是字符串
+        if (typeof result === 'string') {
+            try {
+                res.json(JSON.parse(result));
+            } catch (parseError) {
+                console.error('解析聊天记录JSON失败:', parseError);
+                res.json({ success: false, message: '数据格式错误' });
+            }
+        } else {
+            res.json(result);
+        }
     } catch (error) {
         console.error('获取聊天记录失败:', error);
         res.status(500).json({ success: false, message: '服务器错误' });

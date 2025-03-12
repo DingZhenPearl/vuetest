@@ -79,6 +79,26 @@ export default {
 .sidebar h2 {
   text-align: center;
   margin-bottom: 20px;
+  font-size: calc(0.7rem + 0.5vw); /* 动态适应字体大小 */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap; /* 防止长邮箱地址换行 */
+  padding: 0 5px; /* 添加一些内边距防止文字贴近边缘 */
+  max-width: 100%; /* 确保不超过父容器宽度 */
+  transition: font-size 0.3s; /* 平滑过渡效果 */
+}
+
+/* 为不同的屏幕宽度设置字体大小限制 */
+@media screen and (max-width: 1200px) {
+  .sidebar h2 {
+    font-size: 0.85rem;
+  }
+}
+
+@media screen and (max-width: 768px) {
+  .sidebar h2 {
+    font-size: 0.75rem;
+  }
 }
 
 .sidebar a {
