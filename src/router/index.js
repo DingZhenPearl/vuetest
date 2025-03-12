@@ -57,13 +57,13 @@ const routes = [
     component: () => import('../views/teacher/TeacherAnswer.vue'),
     meta: { requiresAuth: true, role: 'teacher' }
   },
+  */
   {
     path: '/teacher/python',
     name: 'teacherPython',
     component: () => import('../views/teacher/TeacherPython.vue'),
     meta: { requiresAuth: true, role: 'teacher' }
   },
-  */
   
   // 学生相关路由
   {

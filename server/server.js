@@ -57,8 +57,8 @@ function getIPAddress() {
  * @returns {Promise} 脚本执行结果的Promise对象
  */
 function executePythonScript(scriptName, args) {
-    // 脚本文件的完整路径
-    const scriptPath = path.join('D:', 'Microsoft VS Code', 'projects', 'web', 'vuetest', 'src', 'services', scriptName);
+    // 使用相对路径从服务器脚本位置查找Python脚本
+    const scriptPath = path.join(__dirname, '..', 'src', 'services', scriptName);
     
     return new Promise((resolve, reject) => {
         const pythonProcess = spawn('python', [scriptPath, ...args]);
@@ -433,7 +433,10 @@ app.post('/api/follow-up-answer', async (req, res) => {
  * 执行Python脚本测试
  */
 app.post('/run-script', (req, res) => {
-    const pythonProcess = spawn('python', ['test.py']);
+    // 使用相对路径定位analyse.py
+    const scriptPath = path.join(__dirname, '..', 'src', 'services', 'analyse.py');
+    
+    const pythonProcess = spawn('python', [scriptPath]);
     let result = '';
     let error = '';
 

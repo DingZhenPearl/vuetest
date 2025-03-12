@@ -1,14 +1,14 @@
 <template>
   <div class="sidebar">
     <h2 id="userEmail">{{ userEmail || '加载中...' }}</h2>
-    <router-link to="/teacher/home" active-class="active">主页</router-link>
-    <router-link to="/teacher/class" active-class="active">学员管理</router-link>
-    <router-link to="/teacher/grades" active-class="active">成绩统计管理</router-link>
+    <router-link to="/teacher/home" >主页</router-link>
+    <router-link to="/teacher/class" >学员管理</router-link>
+    <router-link to="/teacher/grades" >成绩统计管理</router-link>
     <router-link to="#" @click.prevent="showAlert('权限管理')">权限管理</router-link>
     <router-link to="#" @click.prevent="showAlert('系统设置')">系统设置</router-link>
-    <router-link to="/teacher/analysis" active-class="active">学生学习行为分析</router-link>
-    <router-link to="/teacher/answer" active-class="active">学生提问管理</router-link>
-    <router-link to="/teacher/python" active-class="active">教学数据管理</router-link>
+    <router-link to="/teacher/analysis" >学生学习行为分析</router-link>
+    <router-link to="/teacher/answer" >学生提问管理</router-link>
+    <router-link to="/teacher/python" >教学数据管理</router-link>
     <router-link to="#" @click.prevent="showAlert('数据分析可视化')">数据分析可视化</router-link>
     <router-link to="#" @click.prevent="showAlert('教学反馈报告')">教学反馈报告</router-link>
     <a @click="logout" href="#">退出登录</a>
@@ -79,7 +79,8 @@ export default {
   cursor: pointer;
 }
 
-.sidebar a:hover, .sidebar a.router-link-active, .sidebar a.active {
+/* 仅保留悬停效果，移除 router-link-active 和 active 类的样式 */
+.sidebar a:hover {
   background-color: #34495e;
 }
 </style>
