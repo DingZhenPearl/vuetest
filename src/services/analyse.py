@@ -36,13 +36,14 @@ def analyze_data(data):
 conn = mysql.connector.connect(
     host='localhost',       
     user='root',            
-    password='sushiding'    
+    password='sushiding',
+    database='education_platform'  # 更改为统一数据库    
 )
 cursor = conn.cursor()
 
-# 创建数据库
-cursor.execute('CREATE DATABASE IF NOT EXISTS my_database')
-cursor.execute('USE my_database')
+# 不再需要创建数据库
+# cursor.execute('CREATE DATABASE IF NOT EXISTS my_database')
+# cursor.execute('USE my_database')
 
 # 创建新表
 cursor.execute('''

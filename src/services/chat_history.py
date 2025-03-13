@@ -8,7 +8,7 @@ DB_CONFIG = {
     'host': 'localhost',
     'user': 'root',
     'password': 'sushiding',
-    'database': 'chat_history'
+    'database': 'education_platform'  # 更改为统一数据库
 }
 
 def update_chat(chat_id, messages):

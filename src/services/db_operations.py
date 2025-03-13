@@ -10,7 +10,7 @@ DB_CONFIG = {
     'host': 'localhost',
     'user': 'root',
     'password': 'sushiding',
-    'database': 'user_auth_db'
+    'database': 'education_platform'  # 更改为统一数据库
 }
 
 def get_db_connection():
