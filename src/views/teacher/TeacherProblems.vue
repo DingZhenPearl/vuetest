@@ -1,0 +1,395 @@
+<template>
+  <div class="teacher-problems-container">
+    <TeacherNavbar />
+    
+    <div class="teacher-problems">
+      <h1>题目管理</h1>
+      
+      <!-- 题目表单 -->
+      <div class="problem-form-container">
+        <h2>{{ isEditing ? '编辑题目' : '添加新题目' }}</h2>
+        
+        <el-form :model="problemForm" :rules="rules" ref="problemForm" label-width="100px">
+          <el-form-item label="题目名称" prop="title">
+            <el-input v-model="problemForm.title" placeholder="请输入题目名称"></el-input>
+          </el-form-item>
+          
+          <el-form-item label="题目难度" prop="difficulty">
+            <el-select v-model="problemForm.difficulty" placeholder="请选择题目难度" style="width: 100%">
+              <el-option label="简单" value="easy"></el-option>
+              <el-option label="中等" value="medium"></el-option>
+              <el-option label="困难" value="hard"></el-option>
+            </el-select>
+          </el-form-item>
+          
+          <el-form-item label="题目详情" prop="content">
+            <el-input type="textarea" v-model="problemForm.content" 
+                      placeholder="请输入题目详情" :rows="6"></el-input>
+          </el-form-item>
+          
+          <el-form-item>
+            <el-button type="primary" @click="submitProblem" :loading="submitting">
+              {{ isEditing ? '更新题目' : '提交题目' }}
+            </el-button>
+            <el-button @click="resetForm">重置</el-button>
+            <el-button v-if="isEditing" @click="cancelEdit">取消编辑</el-button>
+          </el-form-item>
+        </el-form>
+      </div>
+      
+      <!-- 题目列表 -->
+      <div class="problems-list-container">
+        <h2>题目列表</h2>
+        
+        <!-- 过滤和搜索 -->
+        <div class="filter-container">
+          <el-input
+            placeholder="搜索题目"
+            v-model="searchQuery"
+            clearable
+            prefix-icon="el-icon-search"
+            style="width: 300px; margin-right: 10px;"
+          ></el-input>
+          
+          <el-select v-model="difficultyFilter" placeholder="难度筛选" clearable>
+            <el-option label="全部" value=""></el-option>
+            <el-option label="简单" value="easy"></el-option>
+            <el-option label="中等" value="medium"></el-option>
+            <el-option label="困难" value="hard"></el-option>
+          </el-select>
+        </div>
+        
+        <!-- 题目表格 -->
+        <el-table :data="filteredProblems" style="width: 100%" v-loading="loading">
+          <el-table-column prop="title" label="题目名称"></el-table-column>
+          <el-table-column prop="difficulty" label="难度">
+            <template #default="scope">
+              <el-tag :type="getDifficultyTag(scope.row.difficulty)">
+                {{ getDifficultyText(scope.row.difficulty) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="created_at" label="创建时间" width="180"></el-table-column>
+          <el-table-column label="操作" width="200">
+            <template #default="scope">
+              <el-button size="mini" @click="editProblem(scope.row)" type="primary">编辑</el-button>
+              <el-button size="mini" @click="deleteProblem(scope.row.id)" type="danger">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+import TeacherNavbar from '../../components/teacher/TeacherNavbar.vue';
+
+export default {
+  name: 'TeacherProblems',
+  components: {
+    TeacherNavbar
+  },
+  data() {
+    return {
+      problemForm: {
+        id: null,
+        title: '',
+        difficulty: '',
+        content: ''
+      },
+      rules: {
+        title: [
+          { required: true, message: '请输入题目名称', trigger: 'blur' },
+          { min: 2, max: 100, message: '长度在 2 到 100 个字符', trigger: 'blur' }
+        ],
+        difficulty: [
+          { required: true, message: '请选择题目难度', trigger: 'change' }
+        ],
+        content: [
+          { required: true, message: '请输入题目详情', trigger: 'blur' }
+        ]
+      },
+      problems: [],
+      isEditing: false,
+      submitting: false,
+      loading: false,
+      searchQuery: '',
+      difficultyFilter: ''
+    }
+  },
+  computed: {
+    filteredProblems() {
+      return this.problems.filter(problem => {
+        // 难度筛选
+        const matchesDifficulty = !this.difficultyFilter || problem.difficulty === this.difficultyFilter;
+        
+        // 搜索查询
+        const matchesSearch = !this.searchQuery || 
+          problem.title.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
+          problem.content.toLowerCase().includes(this.searchQuery.toLowerCase());
+        
+        return matchesDifficulty && matchesSearch;
+      });
+    }
+  },
+  mounted() {
+    this.loadProblems();
+  },
+  methods: {
+    // 加载题目列表
+    async loadProblems() {
+      this.loading = true;
+      try {
+        const email = sessionStorage.getItem('userEmail');
+        if (!email) {
+          this.$message.error('用户未登录，将使用测试数据');
+          // 使用测试数据
+          this.problems = [
+            {
+              id: 1,
+              title: '本地测试题目1',
+              difficulty: 'easy',
+              content: '这是一个本地测试题目',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            },
+            {
+              id: 2,
+              title: '本地测试题目2',
+              difficulty: 'medium',
+              content: '这是第二个本地测试题目',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            }
+          ];
+          return;
+        }
+        
+        // 尝试从API加载数据
+        const response = await fetch(`/api/problems/teacher/${email}`);
+        
+        if (!response.ok) {
+          console.error(`API请求失败: ${response.status} ${response.statusText}`);
+          throw new Error(`HTTP错误! 状态码: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && Array.isArray(data.problems)) {
+          this.problems = data.problems;
+        } else {
+          console.error('获取题目列表失败:', data);
+          this.$message.error(data.message || '获取题目列表失败');
+        }
+      } catch (error) {
+        console.error('加载题目出错:', error);
+        this.$message.error(`加载题目列表失败: ${error.message}`);
+        
+        // 使用测试数据作为备选
+        this.problems = [
+          {
+            id: 1,
+            title: '离线测试题目',
+            difficulty: 'easy',
+            content: '当API不可用时显示的测试题目',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }
+        ];
+      } finally {
+        this.loading = false;
+      }
+    },
+    
+    // 提交题目
+    async submitProblem() {
+      try {
+        await this.$refs.problemForm.validate();
+      } catch (error) {
+        return;
+      }
+      
+      this.submitting = true;
+      
+      try {
+        const email = sessionStorage.getItem('userEmail');
+        if (!email) {
+          this.$message.error('用户未登录');
+          return;
+        }
+        
+        let response;
+        
+        // 添加调试信息
+        console.log('准备发送请求到:', this.isEditing ? 
+          `/api/problems/${this.problemForm.id}` : '/api/problems/submit');
+        
+        if (this.isEditing) {
+          // 更新现有题目
+          response = await fetch(`/api/problems/${this.problemForm.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              title: this.problemForm.title,
+              difficulty: this.problemForm.difficulty,
+              content: this.problemForm.content
+            })
+          });
+        } else {
+          // 创建新题目
+          response = await fetch('/api/problems/submit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: email,
+              title: this.problemForm.title,
+              difficulty: this.problemForm.difficulty,
+              content: this.problemForm.content
+            })
+          });
+        }
+
+        // 检查响应状态
+        if (!response.ok) {
+          const contentType = response.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || `服务器错误: ${response.status}`);
+          } else {
+            // 如果不是JSON响应，获取文本内容用于调试
+            const textResponse = await response.text();
+            console.error('服务器返回非JSON数据:', textResponse.substring(0, 200));
+            throw new Error(`服务器返回了非预期的响应: ${response.status}`);
+          }
+        }
+
+        const data = await response.json();
+        
+        if (data.success) {
+          this.$message.success(this.isEditing ? '题目已更新' : '题目已提交');
+          this.resetForm();
+          this.loadProblems();
+        } else {
+          this.$message.error(data.message || '操作失败');
+        }
+      } catch (error) {
+        console.error('提交题目出错:', error);
+        this.$message.error(`提交失败: ${error.message}`);
+      } finally {
+        this.submitting = false;
+      }
+    },
+    
+    // 编辑题目
+    editProblem(problem) {
+      this.isEditing = true;
+      this.problemForm.id = problem.id;
+      this.problemForm.title = problem.title;
+      this.problemForm.difficulty = problem.difficulty;
+      this.problemForm.content = problem.content;
+      
+      // 滚动到表单顶部
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      });
+    },
+    
+    // 删除题目
+    async deleteProblem(problemId) {
+      if (!confirm('确定要删除这个题目吗？')) {
+        return;
+      }
+      
+      try {
+        const response = await fetch(`/api/problems/${problemId}`, {
+          method: 'DELETE'
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+          this.$message.success('题目已删除');
+          this.loadProblems();
+        } else {
+          this.$message.error(data.message || '删除失败');
+        }
+      } catch (error) {
+        console.error('删除题目出错:', error);
+        this.$message.error('删除失败，请重试');
+      }
+    },
+    
+    // 重置表单
+    resetForm() {
+      this.$refs.problemForm.resetFields();
+      if (this.isEditing) {
+        this.isEditing = false;
+        this.problemForm.id = null;
+      }
+    },
+    
+    // 取消编辑
+    cancelEdit() {
+      this.isEditing = false;
+      this.problemForm.id = null;
+      this.resetForm();
+    },
+    
+    // 获取难度标签类型
+    getDifficultyTag(difficulty) {
+      switch(difficulty) {
+        case 'easy': return 'success';
+        case 'medium': return 'warning';
+        case 'hard': return 'danger';
+        default: return 'info';
+      }
+    },
+    
+    // 获取难度文本
+    getDifficultyText(difficulty) {
+      switch(difficulty) {
+        case 'easy': return '简单';
+        case 'medium': return '中等';
+        case 'hard': return '困难';
+        default: return '未知';
+      }
+    }
+  }
+}
+</script>
+
+<style scoped>
+.teacher-problems-container {
+  display: flex;
+}
+
+.teacher-problems {
+  padding: 20px;
+  background-color: #f4f4f4;
+  min-height: 100vh;
+  margin-left: 250px; /* 与侧边栏宽度相同 */
+  width: calc(100% - 250px);
+  box-sizing: border-box;
+}
+
+.problem-form-container, .problems-list-container {
+  background-color: #fff;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+}
+
+.filter-container {
+  display: flex;
+  margin-bottom: 15px;
+}
+
+@media (max-width: 768px) {
+  .teacher-problems {
+    margin-left: 0;
+    width: 100%;
+  }
+}
+</style>

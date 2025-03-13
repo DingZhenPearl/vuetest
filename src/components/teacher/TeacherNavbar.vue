@@ -58,6 +58,11 @@
           <i class="el-icon-s-management"></i>
           <template #title>数据管理</template>
         </el-menu-item>
+
+        <el-menu-item index="/teacher/problems" class="menu-item">
+          <i class="el-icon-edit-outline"></i>
+          <template #title>出题管理</template>
+        </el-menu-item>
       </div>
       
       <!-- 分析工具 -->

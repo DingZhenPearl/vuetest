@@ -7,6 +7,9 @@ import StudentQuestion from '../views/student/StudentQuestion.vue'
 import StudentProfile from '../views/student/StudentProfile.vue' // 导入个人信息组件
 import StudentExams from '../views/student/StudentExams.vue' // 导入新组件
 
+// 导入新组件
+const TeacherProblems = () => import('../views/teacher/TeacherProblems.vue');
+
 const routes = [
   {
     path: '/',
@@ -65,6 +68,12 @@ const routes = [
     path: '/teacher/python',
     name: 'teacherPython',
     component: () => import('../views/teacher/TeacherPython.vue'),
+    meta: { requiresAuth: true, role: 'teacher' }
+  },
+  {
+    path: '/teacher/problems',
+    name: 'teacherProblems',
+    component: TeacherProblems,
     meta: { requiresAuth: true, role: 'teacher' }
   },
   

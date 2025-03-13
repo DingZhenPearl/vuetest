@@ -1,6 +1,5 @@
 /**
  * 教学互动平台服务器 - 主入口
- * 经过模块化重构，代码更加清晰可维护
  */
 
 // 导入核心模块
@@ -16,8 +15,8 @@ const authRoutes = require('./routes/auth');
 const chatRoutes = require('./routes/chat');
 const questionsRoutes = require('./routes/questions');
 const pythonRoutes = require('./routes/python');
-// const codingRoutes = require('./routes/coding');
-const profileRoutes = require('./routes/profile'); // 新增个人信息路由
+const profileRoutes = require('./routes/profile'); 
+const problemsRoutes = require('./routes/problems'); // 确保此行存在
 
 // 初始化Express应用
 const app = express();
@@ -30,13 +29,13 @@ console.log('静态文件路径:', staticRoot);
 // 配置中间件
 setupMiddlewares(app, staticRoot);
 
-// 注册路由 - 所有API路由统一使用/api前缀
+// 注册路由
 app.use('/api/auth', authRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/questions', questionsRoutes);
 app.use('/api/python', pythonRoutes);
-// app.use('/api/coding', codingRoutes);
-app.use('/api/profile', profileRoutes); // 注册新路由
+app.use('/api/profile', profileRoutes);
+app.use('/api/problems', problemsRoutes); // 确保此行存在
 
 // 基本路由 - 首页
 app.get('/', (req, res) => {
