@@ -1,17 +1,41 @@
 <template>
   <div class="sidebar">
     <h2 id="userEmail">{{ userEmail || '加载中...' }}</h2>
-    <router-link to="/teacher/home" >主页</router-link>
-    <router-link to="/teacher/class" >学员管理</router-link>
-    <router-link to="/teacher/grades" >成绩统计管理</router-link>
-    <router-link to="#" @click.prevent="showAlert('权限管理')">权限管理</router-link>
-    <router-link to="#" @click.prevent="showAlert('系统设置')">系统设置</router-link>
-    <router-link to="/teacher/analysis" >学生学习行为分析</router-link>
-    <router-link to="/teacher/answer" >学生提问管理</router-link>
-    <router-link to="/teacher/python" >教学数据管理</router-link>
-    <router-link to="#" @click.prevent="showAlert('数据分析可视化')">数据分析可视化</router-link>
-    <router-link to="#" @click.prevent="showAlert('教学反馈报告')">教学反馈报告</router-link>
-    <a @click="logout" href="#">退出登录</a>
+    <el-menu class="sidebar-menu">
+      <el-menu-item index="1" @click="navigateTo('/teacher/home')">
+        <span>首页</span>
+      </el-menu-item>
+      <el-menu-item index="2" @click="navigateTo('/teacher/class')">
+        <span>学员管理</span>
+      </el-menu-item>
+      <el-menu-item index="3" @click="navigateTo('/teacher/grades')">
+        <span>成绩统计管理</span>
+      </el-menu-item>
+      <el-menu-item index="4" @click="showAlert('权限管理')">
+        <span>权限管理</span>
+      </el-menu-item>
+      <el-menu-item index="5" @click="showAlert('系统设置')">
+        <span>系统设置</span>
+      </el-menu-item>
+      <el-menu-item index="6" @click="navigateTo('/teacher/analysis')">
+        <span>学生学习行为分析</span>
+      </el-menu-item>
+      <el-menu-item index="7" @click="navigateTo('/teacher/answer')">
+        <span>学生提问管理</span>
+      </el-menu-item>
+      <el-menu-item index="8" @click="navigateTo('/teacher/python')">
+        <span>教学数据管理</span>
+      </el-menu-item>
+      <el-menu-item index="9" @click="showAlert('数据分析可视化')">
+        <span>数据分析可视化</span>
+      </el-menu-item>
+      <el-menu-item index="10" @click="showAlert('教学反馈报告')">
+        <span>教学反馈报告</span>
+      </el-menu-item>
+      <el-menu-item index="11" @click="logout">
+        <span>退出登录</span>
+      </el-menu-item>
+    </el-menu>
   </div>
 </template>
 
@@ -39,6 +63,13 @@ export default {
       localStorage.removeItem('username');
       localStorage.removeItem('userRole');
       this.$router.push('/logIn');
+    },
+    navigateTo(path) {
+      // 在导航链接中添加角色参数
+      this.$router.push({ 
+        path, 
+        query: { role: 'teacher' }
+      });
     }
   }
 }

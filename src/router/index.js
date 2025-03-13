@@ -135,24 +135,58 @@ const router = createRouter({
 // 导航守卫，检查用户是否有权限访问页面
 router.beforeEach((to, from, next) => {
   if (to.matched.some(record => record.meta.requiresAuth)) {
-    // 检查用户是否已登录
+    // 优先检查URL中的角色参数
+    const urlRole = to.query.role
     const userRole = localStorage.getItem('userRole')
     const username = localStorage.getItem('username')
     
-    if (!userRole || !username) {
-      // 未登录，跳转到登录页
+    // 如果没有登录凭证，跳转到登录页
+    if (!username) {
       next({ 
         path: '/logIn',
-        query: { redirect: to.fullPath } // 存储尝试访问的页面，以便登录后跳转
+        query: { redirect: to.fullPath }
       })
-    } else if (to.meta.role && to.meta.role !== userRole) {
-      // 如果用户没有该页面的权限，重定向到对应主页
-      next({ path: `/${userRole}/home` })
+      return
+    }
+    
+    // 确定本次访问使用的角色
+    const effectiveRole = urlRole || userRole
+    
+    // 检查页面所需权限与有效角色是否匹配
+    if (to.meta.role && to.meta.role !== effectiveRole) {
+      // 角色不匹配，重定向到对应主页
+      if (urlRole) {
+        // 如果URL中有角色参数，使用该角色的主页，并保留角色参数
+        next({ 
+          path: `/${urlRole}/home`,
+          query: { role: urlRole } 
+        })
+      } else {
+        // 否则使用localStorage中的角色
+        next({ path: `/${userRole}/home` })
+      }
     } else {
-      next() // 继续访问
+      // 确保在next时保留角色参数
+      if (urlRole && !to.query.role) {
+        next({
+          path: to.path,
+          query: { ...to.query, role: urlRole }
+        })
+      } else {
+        next() // 继续访问
+      }
     }
   } else {
-    next() // 不需要权限的页面，直接访问
+    // 对于不需要权限的页面，保留角色参数
+    const urlRole = to.query.role
+    if (urlRole && !to.query.role) {
+      next({
+        path: to.path,
+        query: { ...to.query, role: urlRole }
+      })
+    } else {
+      next() // 直接访问
+    }
   }
 })
 

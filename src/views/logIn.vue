@@ -129,16 +129,8 @@
           const data = await response.json();
           
           if (response.ok) {
-            // 登录成功，存储用户信息
-            localStorage.setItem('userRole', this.role);
-            localStorage.setItem('username', this.username);
-            localStorage.setItem('userEmail', `${this.username}`);
-            
-            // 获取重定向URL，如果没有则使用默认路径
-            const redirectPath = this.$route.query.redirect || `/${this.role}/home`;
-            
-            // 跳转到对应页面
-            this.$router.push(redirectPath);
+            // 登录成功，处理登录成功后的逻辑
+            this.handleLoginSuccess();
           } else {
             this.error = data.message || '登录失败，请检查账号和密码';
           }
@@ -199,6 +191,20 @@
         } finally {
           this.isRegistering = false;
         }
+      },
+
+      // 登录成功后的处理
+      handleLoginSuccess() {
+        // 仍然在localStorage中保存角色信息（用于其他组件使用）
+        localStorage.setItem('userRole', this.role);
+        localStorage.setItem('username', this.username);
+        localStorage.setItem('userEmail', this.username);
+        
+        // 使用查询参数重定向到角色对应的主页
+        this.$router.push({
+          path: `/${this.role}/home`,
+          query: { role: this.role }
+        });
       }
     }
   }

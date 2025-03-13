@@ -12,6 +12,12 @@
     <router-link to="/student/aiChat" >AI对话</router-link>
     <router-link to="#" @click.prevent="logout">退出登录</router-link>
   </div>
+  <el-menu class="sidebar-menu">
+    <el-menu-item index="1" @click="navigateTo('/student/home')">
+      <span>首页</span>
+    </el-menu-item>
+    <!-- 其他菜单项... -->
+  </el-menu>
 </template>
 
 <script>
@@ -44,6 +50,13 @@ export default {
       localStorage.removeItem('username');
       localStorage.removeItem('userRole');
       this.$router.push('/logIn');
+    },
+    navigateTo(path) {
+      // 在导航链接中添加角色参数
+      this.$router.push({ 
+        path, 
+        query: { role: 'student' }
+      });
     }
   }
 }
