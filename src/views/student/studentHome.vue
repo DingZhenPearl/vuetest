@@ -8,8 +8,14 @@
       <div class="student-home">
         <h1>学生主页</h1>
         
+        <!-- 加载状态 -->
+        <div v-if="isLoading" class="loading-info">
+          <div class="loading-spinner"></div>
+          <p>正在加载个人信息...</p>
+        </div>
+        
         <!-- 个人信息提示卡片 -->
-        <div v-if="!hasProfileInfo" class="profile-reminder">
+        <div v-if="!isLoading && !hasProfileInfo" class="profile-reminder">
           <div class="reminder-content">
             <h3>完善个人信息</h3>
             <p>请设置您的学号和班级等基本信息，以便更好地使用平台功能。</p>
@@ -54,18 +60,64 @@ export default {
   },
   data() {
     return {
-      hasProfileInfo: false
+      hasProfileInfo: false,
+      isLoading: true
     }
   },
   created() {
     // 检查用户是否已设置个人信息
-    this.checkProfileInfo()
+    this.checkProfileInfo();
+    
+    // 检查用户登录状态
+    const username = sessionStorage.getItem('username');
+    if (!username) {
+      this.$router.push('/logIn');
+    }
   },
   methods: {
-    checkProfileInfo() {
+    async checkProfileInfo() {
+      this.isLoading = true;
+      
+      // 先检查sessionStorage
       const profile = JSON.parse(sessionStorage.getItem('userProfile') || '{}')
-      // 判断是否设置了学号和班级
-      this.hasProfileInfo = !!(profile.studentId && profile.className)
+      if (profile.studentId && profile.className) {
+        this.hasProfileInfo = true;
+        this.isLoading = false;
+        return;
+      }
+      
+      // 如果sessionStorage没有数据，尝试从服务器获取
+      const userEmail = sessionStorage.getItem('userEmail')
+      if (!userEmail) {
+        this.hasProfileInfo = false;
+        this.isLoading = false;
+        return;
+      }
+      
+      try {
+        const response = await fetch(`/api/profile/${userEmail}`);
+        const data = await response.json();
+        
+        if (data.success && data.profile && data.profile.student_id && data.profile.class_name) {
+          // 服务器有数据，保存到sessionStorage
+          const profileData = {
+            studentId: data.profile.student_id || '',
+            className: data.profile.class_name || '',
+            major: data.profile.major || '',
+            name: data.profile.name || ''
+          };
+          
+          sessionStorage.setItem('userProfile', JSON.stringify(profileData));
+          this.hasProfileInfo = true;
+        } else {
+          this.hasProfileInfo = false;
+        }
+      } catch (error) {
+        console.error('获取用户信息失败:', error);
+        this.hasProfileInfo = false;
+      }
+      
+      this.isLoading = false;
     },
     goToExams() {
       this.$router.push('/student/exams')
@@ -175,6 +227,33 @@ p {
   color: #34495e;
   line-height: 1.6;
   font-size: 16px;
+}
+
+/* 加载状态样式 */
+.loading-info {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  padding: 20px;
+  margin-bottom: 20px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+}
+
+.loading-spinner {
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #4CAF50;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  animation: spin 1s linear infinite;
+  margin-bottom: 10px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 /* 响应式设计 */

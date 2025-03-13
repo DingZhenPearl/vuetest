@@ -5,6 +5,7 @@ import StudentHome from '../views/student/studentHome.vue'
 import StudentAiChat from '../views/student/StudentAiChat.vue' // 导入新组件
 import StudentQuestion from '../views/student/StudentQuestion.vue'
 import StudentProfile from '../views/student/StudentProfile.vue' // 导入个人信息组件
+import StudentExams from '../views/student/StudentExams.vue' // 导入新组件
 
 const routes = [
   {
@@ -95,6 +96,12 @@ const routes = [
     path: '/student/profile',
     name: 'studentProfile',
     component: StudentProfile,
+    meta: { requiresAuth: true, role: 'student' }
+  },
+  {
+    path: '/student/exams',
+    name: 'studentExams',
+    component: StudentExams,
     meta: { requiresAuth: true, role: 'student' }
   },
   /* 暂时注释掉尚未创建的学生页面
