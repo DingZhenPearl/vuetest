@@ -51,7 +51,7 @@ def init_database():
     try:
         # 创建学生表
         cursor.execute(''' 
-            CREATE TABLE IF NOT EXISTS students (
+            CREATE TABLE IF NOT EXISTS edu_users_student (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 email VARCHAR(255) UNIQUE NOT NULL,
                 password VARCHAR(255) NOT NULL,
@@ -62,7 +62,7 @@ def init_database():
         
         # 创建教师表
         cursor.execute(''' 
-            CREATE TABLE IF NOT EXISTS teachers (
+            CREATE TABLE IF NOT EXISTS edu_users_teacher (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 email VARCHAR(255) UNIQUE NOT NULL,
                 password VARCHAR(255) NOT NULL,
@@ -86,7 +86,7 @@ def register(user_type, email, password):
     
     try:
         # 根据用户类型选择表
-        table = 'students' if user_type == 'student' else 'teachers'
+        table = 'edu_users_student' if user_type == 'student' else 'edu_users_teacher'
         
         # 检查邮箱是否已存在
         cursor.execute(f"SELECT id FROM {table} WHERE email = %s", (email,))
@@ -117,7 +117,7 @@ def login(user_type, email, password):
 
     try:
         # 根据用户类型选择表
-        table = 'students' if user_type == 'student' else 'teachers'
+        table = 'edu_users_student' if user_type == 'student' else 'edu_users_teacher'
 
         # 获取用户信息
         cursor.execute(

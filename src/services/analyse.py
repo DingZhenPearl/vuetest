@@ -47,7 +47,7 @@ cursor = conn.cursor()
 
 # 创建新表
 cursor.execute('''
-    CREATE TABLE IF NOT EXISTS users (
+    CREATE TABLE IF NOT EXISTS edu_analytics_users (
         id INT AUTO_INCREMENT PRIMARY KEY,
         student_name VARCHAR(255) NOT NULL,
         coding_accuracy DECIMAL(5, 2) NOT NULL,
@@ -56,7 +56,7 @@ cursor.execute('''
 ''')
 
 # 查询数据
-cursor.execute("SELECT * FROM users")
+cursor.execute("SELECT * FROM edu_analytics_users")
 users = cursor.fetchall()
 
 # 打印原始数据（验证）

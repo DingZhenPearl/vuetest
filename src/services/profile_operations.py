@@ -31,7 +31,7 @@ def create_tables():
     try:
         # 创建学生个人信息表
         cursor.execute("""
-            CREATE TABLE IF NOT EXISTS student_profiles (
+            CREATE TABLE IF NOT EXISTS edu_profiles_student (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 email VARCHAR(255) NOT NULL UNIQUE,
                 student_id VARCHAR(50),
@@ -68,7 +68,7 @@ def save_profile(email, student_id, class_name, major, name):
     try:
         # 检查是否已经存在该用户的记录
         cursor.execute("""
-            SELECT id FROM student_profiles WHERE email = %s
+            SELECT id FROM edu_profiles_student WHERE email = %s
         """, (email,))
         
         result = cursor.fetchone()
@@ -76,14 +76,14 @@ def save_profile(email, student_id, class_name, major, name):
         if result:
             # 更新现有记录
             cursor.execute("""
-                UPDATE student_profiles
+                UPDATE edu_profiles_student
                 SET student_id = %s, class_name = %s, major = %s, name = %s
                 WHERE email = %s
             """, (student_id, class_name, major, name, email))
         else:
             # 创建新记录
             cursor.execute("""
-                INSERT INTO student_profiles (email, student_id, class_name, major, name)
+                INSERT INTO edu_profiles_student (email, student_id, class_name, major, name)
                 VALUES (%s, %s, %s, %s, %s)
             """, (email, student_id, class_name, major, name))
         
@@ -114,7 +114,7 @@ def get_profile(email):
         cursor.execute("""
             SELECT email, student_id, class_name, major, name, 
                    created_at, updated_at
-            FROM student_profiles
+            FROM edu_profiles_student
             WHERE email = %s
         """, (email,))
         

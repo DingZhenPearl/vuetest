@@ -30,9 +30,8 @@ def create_tables():
     
     try:
         # 创建问题表
-# 修改 create_tables 函数中的表结构
         cursor.execute("""
-            CREATE TABLE IF NOT EXISTS questions (
+            CREATE TABLE IF NOT EXISTS edu_qa_questions (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 email VARCHAR(255) NOT NULL,
                 title VARCHAR(255) NOT NULL,
@@ -63,7 +62,7 @@ def submit_question(email, title, content):
     
     try:
         cursor.execute("""
-            INSERT INTO questions (email, title, content)
+            INSERT INTO edu_qa_questions (email, title, content)
             VALUES (%s, %s, %s)
         """, (email, title, content))
         
@@ -90,7 +89,7 @@ def get_student_questions(email):
         # 修改 get_student_questions 函数中的查询语句
         cursor.execute("""
             SELECT id, title, content, status, created_at, answer, answered_at, follow_ups
-            FROM questions
+            FROM edu_qa_questions
             WHERE email = %s
             ORDER BY created_at DESC
         """, (email,))
@@ -125,7 +124,7 @@ def get_all_questions():
         # 修改 get_all_questions 函数中的查询语句
         cursor.execute("""
             SELECT id, email, title, content, status, created_at, answer, answered_at, follow_ups
-            FROM questions
+            FROM edu_qa_questions
             ORDER BY created_at DESC
         """)
         
@@ -157,7 +156,7 @@ def submit_answer(question_id, answer):
     
     try:
         cursor.execute("""
-            UPDATE questions
+            UPDATE edu_qa_questions
             SET answer = %s,
                 status = 'answered',
                 answered_at = CURRENT_TIMESTAMP
@@ -187,7 +186,7 @@ def delete_question(question_id):
     try:
         # 先检查问题状态
         cursor.execute("""
-            SELECT status FROM questions WHERE id = %s
+            SELECT status FROM edu_qa_questions WHERE id = %s
         """, (question_id,))
         
         result = cursor.fetchone()
@@ -206,7 +205,7 @@ def delete_question(question_id):
             return
             
         cursor.execute("""
-            DELETE FROM questions WHERE id = %s
+            DELETE FROM edu_qa_questions WHERE id = %s
         """, (question_id,))
         
         conn.commit()
@@ -231,7 +230,7 @@ def update_question(question_id, title, content):
     try:
         # 先检查问题状态
         cursor.execute("""
-            SELECT status FROM questions WHERE id = %s
+            SELECT status FROM edu_qa_questions WHERE id = %s
         """, (question_id,))
         
         result = cursor.fetchone()
@@ -250,7 +249,7 @@ def update_question(question_id, title, content):
             return
             
         cursor.execute("""
-            UPDATE questions 
+            UPDATE edu_qa_questions 
             SET title = %s, content = %s
             WHERE id = %s
         """, (title, content, question_id))
@@ -274,7 +273,7 @@ def submit_follow_up(question_id, content, is_teacher=False):
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
-        cursor.execute("SELECT follow_ups FROM questions WHERE id = %s", (question_id,))
+        cursor.execute("SELECT follow_ups FROM edu_qa_questions WHERE id = %s", (question_id,))
         result = cursor.fetchone()
         follow_ups = []
         if result and result[0] is not None:
@@ -292,7 +291,7 @@ def submit_follow_up(question_id, content, is_teacher=False):
 
         # 修复SQL更新语句
         cursor.execute("""
-            UPDATE questions 
+            UPDATE edu_qa_questions 
             SET follow_ups = %s,
                 status = IF(%s = 1, 'answered', 'pending')
             WHERE id = %s

@@ -34,7 +34,7 @@ def create_tables():
     try:
         # 学生编程数据表
         cursor.execute("""
-            CREATE TABLE IF NOT EXISTS coding_submissions (
+            CREATE TABLE IF NOT EXISTS edu_coding_submissions (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 student_class VARCHAR(100) NOT NULL,
                 student_id VARCHAR(50) NOT NULL,
@@ -53,7 +53,7 @@ def create_tables():
         
         # 学生解题统计表
         cursor.execute("""
-            CREATE TABLE IF NOT EXISTS problem_solving_stats (
+            CREATE TABLE IF NOT EXISTS edu_problem_solving_stats (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 student_id VARCHAR(50) NOT NULL,
                 problem_id VARCHAR(50) NOT NULL,
@@ -92,7 +92,7 @@ def submit_data(data_json_str):
         
         # 1. 插入提交记录
         cursor.execute("""
-            INSERT INTO coding_submissions (
+            INSERT INTO edu_coding_submissions (
                 student_class, student_id, problem_id, problem_title, 
                 code_content, submit_result, execution_errors, 
                 first_view_time, submission_time
@@ -112,7 +112,7 @@ def submit_data(data_json_str):
         # 2. 更新解题统计
         # 查询是否已有此学生的此题统计
         cursor.execute("""
-            SELECT * FROM problem_solving_stats 
+            SELECT * FROM edu_problem_solving_stats 
             WHERE student_id = %s AND problem_id = %s
         """, (data['student_id'], data['problem_id']))
         
@@ -121,7 +121,7 @@ def submit_data(data_json_str):
         if not stats_record:
             # 创建新记录
             cursor.execute("""
-                INSERT INTO problem_solving_stats (
+                INSERT INTO edu_problem_solving_stats (
                     student_id, problem_id, total_attempts, 
                     is_solved, first_view_time
                 ) VALUES (%s, %s, %s, %s, %s)
@@ -136,7 +136,7 @@ def submit_data(data_json_str):
             # 如果一次就成功，记录解决时间
             if data['submit_result'] == 'success':
                 cursor.execute("""
-                    UPDATE problem_solving_stats
+                    UPDATE edu_problem_solving_stats
                     SET solved_time = %s,
                         attempts_until_success = 1,
                         time_spent_seconds = TIMESTAMPDIFF(SECOND, first_view_time, %s)
@@ -150,7 +150,7 @@ def submit_data(data_json_str):
         else:
             # 更新现有记录
             cursor.execute("""
-                UPDATE problem_solving_stats
+                UPDATE edu_problem_solving_stats
                 SET total_attempts = total_attempts + 1
                 WHERE student_id = %s AND problem_id = %s
             """, (data['student_id'], data['problem_id']))
@@ -158,7 +158,7 @@ def submit_data(data_json_str):
             # 如果之前未解决，但现在成功了
             if not stats_record[5] and data['submit_result'] == 'success':
                 cursor.execute("""
-                    UPDATE problem_solving_stats
+                    UPDATE edu_problem_solving_stats
                     SET is_solved = TRUE,
                         solved_time = %s,
                         attempts_until_success = total_attempts,
@@ -195,7 +195,7 @@ def get_student_stats(student_id):
                 SUM(CASE WHEN is_solved = TRUE THEN 1 ELSE 0 END) as problems_solved,
                 AVG(attempts_until_success) as avg_attempts_until_success,
                 AVG(time_spent_seconds) as avg_solving_time_seconds
-            FROM problem_solving_stats
+            FROM edu_problem_solving_stats
             WHERE student_id = %s
         """, (student_id,))
         
@@ -210,10 +210,10 @@ def get_student_stats(student_id):
                 attempts_until_success,
                 total_attempts,
                 time_spent_seconds
-            FROM problem_solving_stats ps
+            FROM edu_problem_solving_stats ps
             JOIN (
                 SELECT DISTINCT problem_id, problem_title 
-                FROM coding_submissions
+                FROM edu_coding_submissions
                 WHERE student_id = %s
             ) as titles ON ps.problem_id = titles.problem_id
             WHERE student_id = %s
@@ -226,7 +226,7 @@ def get_student_stats(student_id):
             SELECT 
                 execution_errors,
                 COUNT(*) as error_count
-            FROM coding_submissions
+            FROM edu_coding_submissions
             WHERE student_id = %s AND execution_errors IS NOT NULL
             GROUP BY execution_errors
             ORDER BY error_count DESC
@@ -264,7 +264,7 @@ def get_class_stats(class_name):
         # 获取班级内所有学生ID
         cursor.execute("""
             SELECT DISTINCT student_id
-            FROM coding_submissions
+            FROM edu_coding_submissions
             WHERE student_class = %s
         """, (class_name,))
         
@@ -279,7 +279,7 @@ def get_class_stats(class_name):
                 SUM(CASE WHEN submit_result = 'success' THEN 1 ELSE 0 END) as total_successful_submissions,
                 COUNT(*) as total_submissions,
                 (SUM(CASE WHEN submit_result = 'success' THEN 1 ELSE 0 END) / COUNT(*)) * 100 as success_rate
-            FROM coding_submissions
+            FROM edu_coding_submissions
             WHERE student_class = %s
         """, (class_name,))
         
@@ -293,7 +293,7 @@ def get_class_stats(class_name):
                 COUNT(DISTINCT CASE WHEN submit_result = 'success' THEN student_id END) as students_solved,
                 COUNT(DISTINCT student_id) as students_attempted,
                 (COUNT(DISTINCT CASE WHEN submit_result = 'success' THEN student_id END) / COUNT(DISTINCT student_id)) * 100 as completion_rate
-            FROM coding_submissions
+            FROM edu_coding_submissions
             WHERE student_class = %s
             GROUP BY problem_id
         """, (class_name,))
@@ -308,7 +308,7 @@ def get_class_stats(class_name):
                     student_id,
                     COUNT(DISTINCT CASE WHEN is_solved = TRUE THEN problem_id END) as problems_solved,
                     AVG(attempts_until_success) as avg_attempts
-                FROM problem_solving_stats
+                FROM edu_problem_solving_stats
                 WHERE student_id = %s
             """, (student_id,))
             
@@ -354,7 +354,7 @@ def get_problem_stats(problem_id):
                 COUNT(DISTINCT CASE WHEN submit_result = 'success' THEN student_id END) as students_solved,
                 COUNT(*) as total_submissions,
                 SUM(CASE WHEN submit_result = 'success' THEN 1 ELSE 0 END) as successful_submissions
-            FROM coding_submissions
+            FROM edu_coding_submissions
             WHERE problem_id = %s
         """, (problem_id,))
         
@@ -367,7 +367,7 @@ def get_problem_stats(problem_id):
                 COUNT(DISTINCT student_id) as students_attempted,
                 COUNT(DISTINCT CASE WHEN submit_result = 'success' THEN student_id END) as students_solved,
                 (COUNT(DISTINCT CASE WHEN submit_result = 'success' THEN student_id END) / COUNT(DISTINCT student_id)) * 100 as completion_rate
-            FROM coding_submissions
+            FROM edu_coding_submissions
             WHERE problem_id = %s
             GROUP BY student_class
         """, (problem_id,))
@@ -379,7 +379,7 @@ def get_problem_stats(problem_id):
             SELECT 
                 execution_errors,
                 COUNT(*) as count
-            FROM coding_submissions
+            FROM edu_coding_submissions
             WHERE problem_id = %s AND execution_errors IS NOT NULL
             GROUP BY execution_errors
             ORDER BY count DESC
@@ -393,7 +393,7 @@ def get_problem_stats(problem_id):
             SELECT 
                 time_spent_seconds,
                 COUNT(*) as count
-            FROM problem_solving_stats
+            FROM edu_problem_solving_stats
             WHERE problem_id = %s AND is_solved = TRUE
             GROUP BY time_spent_seconds
             ORDER BY time_spent_seconds ASC

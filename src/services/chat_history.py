@@ -16,7 +16,7 @@ def update_chat(chat_id, messages):
     cursor = conn.cursor()
     
     cursor.execute('''
-        UPDATE chat_history 
+        UPDATE edu_chat_history 
         SET messages = %s
         WHERE id = %s
     ''', (messages, chat_id))
@@ -39,7 +39,7 @@ def create_tables():
     
     # 创建聊天历史表
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS chat_history (
+        CREATE TABLE IF NOT EXISTS edu_chat_history (
             id INT AUTO_INCREMENT PRIMARY KEY,
             user_email VARCHAR(255) NOT NULL,
             title VARCHAR(255),
@@ -59,7 +59,7 @@ def get_chat_history(email):
     
     cursor.execute('''
         SELECT id, title, created_at, messages 
-        FROM chat_history 
+        FROM edu_chat_history 
         WHERE user_email = %s 
         ORDER BY created_at DESC
     ''', (email,))
@@ -85,7 +85,7 @@ def save_chat(email, messages):
     title = first_message[:20] + '...' if len(first_message) > 20 else first_message
     
     cursor.execute('''
-        INSERT INTO chat_history (user_email, title, messages)
+        INSERT INTO edu_chat_history (user_email, title, messages)
         VALUES (%s, %s, %s)
     ''', (email, title, messages))
     
@@ -106,7 +106,7 @@ def get_chat(chat_id):
     cursor = conn.cursor(dictionary=True)
     
     cursor.execute('''
-        SELECT * FROM chat_history WHERE id = %s
+        SELECT * FROM edu_chat_history WHERE id = %s
     ''', (chat_id,))
     
     chat = cursor.fetchone()
@@ -129,7 +129,7 @@ def delete_chat(chat_id):
     cursor = conn.cursor()
     
     cursor.execute('''
-        DELETE FROM chat_history WHERE id = %s
+        DELETE FROM edu_chat_history WHERE id = %s
     ''', (chat_id,))
     
     conn.commit()
