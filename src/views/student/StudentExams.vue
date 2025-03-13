@@ -20,6 +20,15 @@
           <el-option label="中等" value="medium" />
           <el-option label="困难" value="hard" />
         </el-select>
+        
+        <!-- 添加提问按钮 -->
+        <el-button 
+          type="info" 
+          icon="el-icon-question" 
+          style="margin-left: auto"
+          @click="showQuestionDialog(null)">
+          提交问题
+        </el-button>
       </div>
 
       <!-- 添加刷新按钮 -->
@@ -64,10 +73,13 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="200">
+        <el-table-column label="操作" width="250">
           <template #default="scope">
             <el-button size="mini" type="primary" @click="startSolveProblem(scope.row)">
               开始解题
+            </el-button>
+            <el-button size="mini" type="info" @click="showQuestionDialog(scope.row.id)">
+              提问
             </el-button>
           </template>
         </el-table-column>
@@ -95,20 +107,33 @@
             <el-button type="primary" @click="startSolveProblem(currentProblem)">
               开始解题
             </el-button>
+            <el-button type="info" @click="showQuestionFromDetail()">
+              提交问题
+            </el-button>
           </span>
         </template>
       </el-dialog>
+      
+      <!-- 问题对话框组件 -->
+      <QuestionDialogComponent
+        v-model:visible="questionDialogVisible"
+        :is-teacher="false"
+        :related-problem-id="selectedProblemId"
+        @question-submitted="handleQuestionSubmitted"
+      />
     </div>
   </div>
 </template>
 
 <script>
 import StudentNavbar from '../../components/student/StudentNavbar.vue';
+import QuestionDialogComponent from '../../components/common/QuestionDialogComponent.vue';
 
 export default {
   name: 'StudentExams',
   components: {
-    StudentNavbar
+    StudentNavbar,
+    QuestionDialogComponent
   },
   data() {
     return {
@@ -119,7 +144,10 @@ export default {
       refreshIcon: 'el-icon-refresh',
       problems: [],
       currentProblem: null,
-      dialogVisible: false
+      dialogVisible: false,
+      // 添加问题对话框相关数据
+      questionDialogVisible: false,
+      selectedProblemId: null
     }
   },
   computed: {
@@ -313,6 +341,36 @@ export default {
         case 'completed': return '已完成';
         default: return '未知';
       }
+    },
+    
+    // 显示问题对话框
+    showQuestionDialog(problemId) {
+      this.selectedProblemId = problemId;
+      this.questionDialogVisible = true;
+      
+      // 如果当前有题目详情对话框打开，则关闭它
+      if (this.dialogVisible) {
+        this.dialogVisible = false;
+      }
+    },
+    
+    // 从详情对话框打开问题对话框
+    showQuestionFromDetail() {
+      if (this.currentProblem) {
+        this.selectedProblemId = this.currentProblem.id;
+        this.questionDialogVisible = true;
+        this.dialogVisible = false;
+      }
+    },
+    
+    // 处理问题提交成功的回调
+    handleQuestionSubmitted() {
+      this.$notify({
+        title: '成功',
+        message: '您的问题已提交，教师会尽快答复',
+        type: 'success',
+        duration: 3000
+      });
     }
   }
 }
@@ -344,6 +402,7 @@ h1 {
   display: flex;
   margin-bottom: 20px;
   gap: 10px;
+  align-items: center;
 }
 
 .search-input {

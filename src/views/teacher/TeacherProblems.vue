@@ -57,6 +57,15 @@
             <el-option label="中等" value="medium"></el-option>
             <el-option label="困难" value="hard"></el-option>
           </el-select>
+          
+          <!-- 添加查看问题按钮 -->
+          <el-button 
+            type="info" 
+            icon="el-icon-question" 
+            style="margin-left: auto;"
+            @click="goToQuestionsList">
+            查看题目相关问题
+          </el-button>
         </div>
         
         <!-- 题目表格 -->
@@ -70,25 +79,36 @@
             </template>
           </el-table-column>
           <el-table-column prop="created_at" label="创建时间" width="180"></el-table-column>
-          <el-table-column label="操作" width="200">
+          <el-table-column label="操作" width="280">
             <template #default="scope">
               <el-button size="mini" @click="editProblem(scope.row)" type="primary">编辑</el-button>
               <el-button size="mini" @click="deleteProblem(scope.row.id)" type="danger">删除</el-button>
+              <el-button size="mini" @click="viewQuestions(scope.row)" type="info">相关问题</el-button>
             </template>
           </el-table-column>
         </el-table>
       </div>
     </div>
+    
+    <!-- 添加问题对话框组件 -->
+    <QuestionDialogComponent
+      v-model:visible="questionDialogVisible"
+      :is-teacher="true"
+      :related-problem-id="currentProblemId"
+      @question-submitted="handleQuestionSubmitted"
+    />
   </div>
 </template>
 
 <script>
 import TeacherNavbar from '../../components/teacher/TeacherNavbar.vue';
+import QuestionDialogComponent from '../../components/common/QuestionDialogComponent.vue';
 
 export default {
   name: 'TeacherProblems',
   components: {
-    TeacherNavbar
+    TeacherNavbar,
+    QuestionDialogComponent
   },
   data() {
     return {
@@ -115,8 +135,14 @@ export default {
       submitting: false,
       loading: false,
       searchQuery: '',
-      difficultyFilter: ''
+      difficultyFilter: '',
+      // 添加问题对话框相关数据
+      questionDialogVisible: false,
+      currentProblemId: null
     }
+  },
+  mounted() {
+    this.loadProblems();
   },
   computed: {
     filteredProblems() {
@@ -132,9 +158,6 @@ export default {
         return matchesDifficulty && matchesSearch;
       });
     }
-  },
-  mounted() {
-    this.loadProblems();
   },
   methods: {
     // 加载题目列表
@@ -354,6 +377,29 @@ export default {
         case 'hard': return '困难';
         default: return '未知';
       }
+    },
+    
+    // 跳转到问题列表页面
+    goToQuestionsList() {
+      this.$router.push('/teacher/answer');
+    },
+    
+    // 查看特定题目相关的问题
+    viewQuestions(problem) {
+      this.currentProblemId = problem.id;
+      this.questionDialogVisible = true;
+    },
+    
+    // 处理问题提交成功的回调
+    handleQuestionSubmitted() {
+      this.$notify({
+        title: '成功',
+        message: '问题答复已提交',
+        type: 'success',
+        duration: 2000
+      });
+      
+      // 可以根据需要添加额外的逻辑，例如更新问题列表等
     }
   }
 }
@@ -384,6 +430,7 @@ export default {
 .filter-container {
   display: flex;
   margin-bottom: 15px;
+  align-items: center;
 }
 
 @media (max-width: 768px) {
