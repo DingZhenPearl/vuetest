@@ -84,8 +84,8 @@ export default {
   },
   methods: {
     async loadUserProfile() {
-      // 从本地存储加载用户邮箱
-      const userEmail = localStorage.getItem('userEmail') || ''
+      // 从会话存储加载用户邮箱
+      const userEmail = sessionStorage.getItem('userEmail') || ''
       if (!userEmail) {
         this.$router.push('/logIn')
         return
@@ -106,16 +106,16 @@ export default {
           this.profile.major = data.profile.major || ''
           this.profile.name = data.profile.name || ''
           
-          // 同步到本地存储
-          localStorage.setItem('userProfile', JSON.stringify({
+          // 同步到会话存储
+          sessionStorage.setItem('userProfile', JSON.stringify({
             studentId: this.profile.studentId,
             className: this.profile.className,
             major: this.profile.major,
             name: this.profile.name
           }))
         } else {
-          // 服务器无数据，尝试从本地存储获取
-          const savedProfile = JSON.parse(localStorage.getItem('userProfile') || '{}')
+          // 服务器无数据，尝试从会话存储获取
+          const savedProfile = JSON.parse(sessionStorage.getItem('userProfile') || '{}')
           
           this.profile.studentId = savedProfile.studentId || ''
           this.profile.className = savedProfile.className || ''
@@ -125,8 +125,8 @@ export default {
       } catch (error) {
         console.error('加载个人信息失败:', error)
         
-        // 从本地存储加载
-        const savedProfile = JSON.parse(localStorage.getItem('userProfile') || '{}')
+        // 从会话存储加载
+        const savedProfile = JSON.parse(sessionStorage.getItem('userProfile') || '{}')
         this.profile.studentId = savedProfile.studentId || ''
         this.profile.className = savedProfile.className || ''
         this.profile.major = savedProfile.major || ''
@@ -136,73 +136,73 @@ export default {
       }
     },
     
-        async saveProfile() {
-    this.isSaving = true
-    this.message = ''
-    
-    try {
+    async saveProfile() {
+      this.isSaving = true
+      this.message = ''
+      
+      try {
         // 保存到服务器
         const response = await fetch('/api/profile/save', {
-        method: 'POST',
-        headers: {
+          method: 'POST',
+          headers: {
             'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
+          },
+          body: JSON.stringify({
             email: this.profile.email,
             studentId: this.profile.studentId,
             className: this.profile.className,
             major: this.profile.major,
             name: this.profile.name
-        })
+          })
         })
         
         // 检查响应状态码
         if (!response.ok) {
-        throw new Error(`服务器响应错误: ${response.status} ${response.statusText}`);
+          throw new Error(`服务器响应错误: ${response.status} ${response.statusText}`);
         }
         
         // 尝试解析响应内容
         const contentType = response.headers.get('content-type');
         if (!contentType || !contentType.includes('application/json')) {
-        throw new Error('服务器返回格式错误，预期为JSON格式');
+          throw new Error('服务器返回格式错误，预期为JSON格式');
         }
         
         const data = await response.json();
         
         if (data.success) {
-        // 同时保存到本地存储
-        localStorage.setItem('userProfile', JSON.stringify({
+          // 同时保存到会话存储
+          sessionStorage.setItem('userProfile', JSON.stringify({
             studentId: this.profile.studentId,
             className: this.profile.className,
             major: this.profile.major,
             name: this.profile.name
-        }))
-        
-        this.message = '个人信息保存成功！'
-        this.messageType = 'success'
+          }))
+          
+          this.message = '个人信息保存成功！'
+          this.messageType = 'success'
         } else {
-        throw new Error(data.message || '服务器错误')
+          throw new Error(data.message || '服务器错误')
         }
-    } catch (error) {
+      } catch (error) {
         console.error('保存个人信息失败:', error)
         this.message = `保存失败: ${error.message || '请检查网络连接'}`
         this.messageType = 'error'
         
-        // 保存到本地存储作为备份
-        localStorage.setItem('userProfile', JSON.stringify({
-        studentId: this.profile.studentId,
-        className: this.profile.className,
-        major: this.profile.major,
-        name: this.profile.name
+        // 保存到会话存储作为备份
+        sessionStorage.setItem('userProfile', JSON.stringify({
+          studentId: this.profile.studentId,
+          className: this.profile.className,
+          major: this.profile.major,
+          name: this.profile.name
         }))
-    } finally {
+      } finally {
         this.isSaving = false
         
         // 3秒后隐藏消息
         setTimeout(() => {
-        this.message = ''
+          this.message = ''
         }, 3000)
-    }
+      }
     }
   }
 }

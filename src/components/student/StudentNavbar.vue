@@ -123,19 +123,15 @@ export default {
     }
   },
   created() {
-    // 从本地存储或URL参数获取用户信息
-    this.userEmail = localStorage.getItem('userEmail') || '';
-    this.userName = localStorage.getItem('username') || '';
-    this.userIdentifier = localStorage.getItem('userIdentifier') || 
+    // 从 sessionStorage 获取用户信息
+    this.userEmail = sessionStorage.getItem('userEmail') || '';
+    this.userName = sessionStorage.getItem('username') || '';
+    this.userIdentifier = sessionStorage.getItem('userIdentifier') || 
                           this.$route.query.uid || '';
     
-    // 设置当前激活的导航项
+    // 保持其他代码不变
     this.activeIndex = this.$route.path;
-    
-    // 检查是否需要在小屏幕上默认折叠
     this.checkScreenWidth();
-    
-    // 监听屏幕尺寸变化
     window.addEventListener('resize', this.checkScreenWidth);
   },
   beforeUnmount() {
@@ -174,17 +170,16 @@ export default {
       });
     },
     logout() {
-      console.log("退出登录");  // 添加调试日志
+      console.log("退出登录");  
       
-      // 获取当前用户角色，用于跳转时携带
-      const userRole = localStorage.getItem('userRole') || 'student';
+      const userRole = sessionStorage.getItem('userRole') || 'student';
       
-      // 清除本地存储中的用户信息
-      localStorage.removeItem('userEmail');
-      localStorage.removeItem('username');
-      localStorage.removeItem('userRole');
+      // 清除 sessionStorage 中的用户信息
+      sessionStorage.removeItem('userEmail');
+      sessionStorage.removeItem('username');
+      sessionStorage.removeItem('userRole');
+      sessionStorage.removeItem('userIdentifier');
       
-      // 跳转到登录页面，并携带角色信息作为查询参数
       this.$router.push({
         path: '/logIn',
         query: { role: userRole }

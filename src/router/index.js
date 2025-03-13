@@ -136,9 +136,9 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
   // 优先检查URL中的角色参数
   const urlRole = to.query.role
-  const userRole = localStorage.getItem('userRole')
-  const username = localStorage.getItem('username')
-  const userIdentifier = localStorage.getItem('userIdentifier')
+  const userRole = sessionStorage.getItem('userRole') // 改为 sessionStorage
+  const username = sessionStorage.getItem('username') // 改为 sessionStorage
+  const userIdentifier = sessionStorage.getItem('userIdentifier') // 改为 sessionStorage
   
   // 确保所有页面跳转都携带角色参数和用户标识符
   const effectiveRole = urlRole || userRole

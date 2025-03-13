@@ -99,7 +99,7 @@ export default {
   },
   created() {
     // 获取当前登录用户的邮箱
-    this.userEmail = localStorage.getItem('userEmail')
+    this.userEmail = sessionStorage.getItem('userEmail')
     if (!this.userEmail) {
       this.$router.push('/login')
       return

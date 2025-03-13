@@ -14,7 +14,8 @@ export default {
   name: 'NotFound',
   methods: {
     goHome() {
-      const userRole = localStorage.getItem('userRole');
+      // 从 sessionStorage 获取用户角色，而不是 localStorage
+      const userRole = sessionStorage.getItem('userRole');
       if (userRole) {
         this.$router.push(`/${userRole}/home`);
       } else {

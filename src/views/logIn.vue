@@ -195,16 +195,15 @@
 
       // 登录成功后的处理
       handleLoginSuccess() {
-        // 仍然在localStorage中保存角色信息（用于其他组件使用）
-        localStorage.setItem('userRole', this.role);
-        localStorage.setItem('username', this.username);
-        localStorage.setItem('userEmail', this.username);
+        // 使用 sessionStorage 替代 localStorage
+        sessionStorage.setItem('userRole', this.role);
+        sessionStorage.setItem('username', this.username);
+        sessionStorage.setItem('userEmail', this.username);
         
-        // 新增：生成用户标识符
+        // 生成用户标识符
         const uid = btoa(this.username).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
-        localStorage.setItem('userIdentifier', uid);
+        sessionStorage.setItem('userIdentifier', uid);
         
-        // 修改：添加uid参数
         this.$router.push({
           path: `/${this.role}/home`,
           query: { role: this.role, uid: uid }

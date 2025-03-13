@@ -163,7 +163,7 @@ export default {
     
     // 加载聊天历史
     async loadChatHistory() {
-      const userEmail = localStorage.getItem('userEmail')
+      const userEmail = sessionStorage.getItem('userEmail')
       if (!userEmail) {
         console.log('用户未登录')
         return
@@ -245,7 +245,7 @@ export default {
     
     // 保存新的聊天记录
     async saveChat() {
-      const userEmail = localStorage.getItem('userEmail')
+      const userEmail = sessionStorage.getItem('userEmail')
       try {
         const response = await fetch('/api/chat/save', { // 更新API路径
           method: 'POST',

@@ -63,7 +63,7 @@ export default {
   },
   methods: {
     checkProfileInfo() {
-      const profile = JSON.parse(localStorage.getItem('userProfile') || '{}')
+      const profile = JSON.parse(sessionStorage.getItem('userProfile') || '{}')
       // 判断是否设置了学号和班级
       this.hasProfileInfo = !!(profile.studentId && profile.className)
     },
