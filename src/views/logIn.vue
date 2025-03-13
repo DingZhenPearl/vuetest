@@ -200,10 +200,14 @@
         localStorage.setItem('username', this.username);
         localStorage.setItem('userEmail', this.username);
         
-        // 使用查询参数重定向到角色对应的主页
+        // 新增：生成用户标识符
+        const uid = btoa(this.username).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+        localStorage.setItem('userIdentifier', uid);
+        
+        // 修改：添加uid参数
         this.$router.push({
           path: `/${this.role}/home`,
-          query: { role: this.role }
+          query: { role: this.role, uid: uid }
         });
       }
     }
