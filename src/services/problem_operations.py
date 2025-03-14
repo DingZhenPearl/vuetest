@@ -196,6 +196,44 @@ def get_all_problems():
         cursor.close()
         conn.close()
 
+def get_problem_detail(problem_id):
+    """获取单个题目的详细信息"""
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    
+    try:
+        cursor.execute("""
+            SELECT id, teacher_email, title, difficulty, content, input_example, output_example, created_at, updated_at
+            FROM edu_problems
+            WHERE id = %s
+        """, (problem_id,))
+        
+        problem = cursor.fetchone()
+        
+        if not problem:
+            print(json.dumps({
+                'success': False,
+                'message': "题目不存在"
+            }))
+            return
+        
+        # 转换时间戳为字符串，以便JSON序列化
+        problem['created_at'] = problem['created_at'].isoformat()
+        problem['updated_at'] = problem['updated_at'].isoformat()
+        
+        print(json.dumps({
+            'success': True,
+            'problem': problem
+        }))
+    except mysql.connector.Error as err:
+        print(json.dumps({
+            'success': False,
+            'message': f"获取题目详情失败: {str(err)}"
+        }))
+    finally:
+        cursor.close()
+        conn.close()
+
 if __name__ == "__main__":
     # 确保数据表存在
     create_tables()
@@ -249,6 +287,15 @@ if __name__ == "__main__":
     
     elif operation == "get_all_problems":
         get_all_problems()
+    
+    elif operation == "get_problem_detail":
+        if len(sys.argv) != 3:
+            print(json.dumps({
+                'success': False,
+                'message': "参数不足"
+            }))
+            sys.exit(1)
+        get_problem_detail(sys.argv[2])
     
     else:
         print(json.dumps({

@@ -5,6 +5,8 @@ const express = require('express');
 const router = express.Router();
 // 使用统一的 Python 脚本执行服务
 const { executePythonScript } = require('../services/python');
+// 引入C++代码验证服务
+const { validateCppCode } = require('../services/cppRuntime');
 
 /**
  * 获取教师的题目列表
@@ -135,6 +137,51 @@ router.delete('/:id', async (req, res) => {
   } catch (error) {
     console.error('删除题目失败:', error);
     res.status(500).json({ success: false, message: '服务器错误' });
+  }
+});
+
+/**
+ * 验证C++代码
+ */
+router.post('/validate-cpp', async (req, res) => {
+  try {
+    const { code, problemId } = req.body;
+    
+    if (!code || !problemId) {
+      return res.status(400).json({
+        success: false,
+        message: '缺少必要参数'
+      });
+    }
+    
+    // 获取题目样例信息
+    const problemResult = await executePythonScript('problem_operations.py', [
+      'get_problem_detail',
+      problemId
+    ]);
+    
+    // 确保题目详情获取成功
+    if (!problemResult.success || !problemResult.problem) {
+      return res.status(404).json({
+        success: false,
+        message: '题目不存在或无法获取题目详情'
+      });
+    }
+    
+    const { input_example, output_example } = problemResult.problem;
+    
+    // 验证代码
+    const validationResult = await validateCppCode(code, input_example, output_example);
+    
+    // 返回验证结果
+    res.json(validationResult);
+  } catch (error) {
+    console.error('C++代码验证失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '服务器错误',
+      error: error.message
+    });
   }
 });
 
