@@ -303,20 +303,21 @@ export default {
       localStorage.setItem(`problem-workspace-${problem.id}`, JSON.stringify(workspaceInfo));
       
       // 创建一个弹窗提示用户操作
-      this.$confirm('正在尝试打开VSCode，您可以选择以下方式：', '跳转到VSCode', {
-        confirmButtonText: '自动尝试',
-        cancelButtonText: '手动打开',
+      this.$confirm('请选择如何打开VSCode：', '跳转到VSCode', {
+        confirmButtonText: '打开新窗口',
+        cancelButtonText: '切换到已有窗口',
         type: 'info',
         center: true,
         distinguishCancelAndClose: true,
         showClose: false,
+        closeOnClickModal: false
       }).then(() => {
-        // 用户选择自动尝试
-        this.tryAutomaticVSCodeOpening();
+        // 用户选择打开新窗口
+        this.openNewVSCodeWindow(problem.id);
       }).catch(action => {
         if (action === 'cancel') {
-          // 用户选择手动打开
-          this.showManualVSCodeOpeningDialog();
+          // 用户选择切换到已有窗口
+          this.switchToExistingVSCode(problem.id);
         }
       });
       
@@ -324,58 +325,120 @@ export default {
       this.dialogVisible = false;
     },
     
-    // 尝试自动打开VSCode
-    tryAutomaticVSCodeOpening() {
+    // 打开新的VSCode窗口
+    openNewVSCodeWindow(problemId) {
       try {
-        // 通过生成随机数来避免浏览器缓存
+        // 使用随机参数避免缓存
         const random = Math.random().toString(36).substring(2);
         
-        // 尝试各种可能的VSCode协议
-        const protocols = [
-          // 常规协议
-          `vscode://file/?r=${random}`,
-          // 文件管理器命令
-          `vscode://file-explorer/focus?r=${random}`,
-          // 通用窗口
-          `vscode://vscode.env.openWindow?r=${random}`,
-          // 设置编辑器
-          `vscode://workbench/settings?r=${random}`,
-          // 命令面板
-          `vscode://workbench/command-palette?r=${random}`,
+        // 使用正确的VSCode协议格式来打开新窗口
+        // 注意：vscode协议不支持直接在file后面使用new-window作为路径
+        const url = `vscode://vscode.commands.executeCommand/workbench.action.newWindow?problemId=${problemId}&r=${random}`;
+        window.location.href = url;
+        
+        // 备选方案1：使用另一种命令格式
+        setTimeout(() => {
+          if (!document.hidden) { // 如果页面仍可见，说明可能第一个协议未生效
+            const link = document.createElement('a');
+            link.href = `vscode://vscode.env.openWindow?problemId=${problemId}&r=${random}`;
+            link.click();
+          }
+        }, 500);
+        
+        // 备选方案2：尝试启动VSCode不带任何参数
+        setTimeout(() => {
+          if (!document.hidden) { // 如果页面仍可见，说明之前的协议未生效
+            const link = document.createElement('a');
+            link.href = `vscode://`;
+            link.click();
+          }
+        }, 1000);
+        
+        this.$notify({
+          title: '正在打开新的VSCode窗口',
+          message: '如果自动打开失败，请手动启动VSCode',
+          type: 'info',
+          duration: 5000
+        });
+      } catch (e) {
+        console.error('打开新VSCode窗口失败:', e);
+        this.showManualVSCodeOpeningDialog();
+      }
+    },
+    
+    // 切换到已有的VSCode窗口
+    switchToExistingVSCode(problemId) {
+      try {
+        // 存储一个标记，表明我们尝试激活现有窗口
+        localStorage.setItem('vscode-activation-target', 'existing-window');
+        localStorage.setItem('vscode-current-problem-id', problemId.toString());
+        
+        // 使用随机参数避免缓存
+        // const random = Math.random().toString(36).substring(2);
+        
+        // 使用多种尝试方法激活VSCode
+        const activationMethods = [
+          // 1. 直接使用最基础的协议 - 这应该会激活VSCode但不会创建新窗口
+          () => {
+            window.location.href = `vscode://`;
+          },
+          
+          // 2. 使用文件浏览器命令
+          () => {
+            const link = document.createElement('a');
+            link.href = `vscode://file-explorer.focus`;
+            link.click();
+          },
+          
+          // 3. 尝试使用更广泛支持的URL格式
+          // () => {
+          //   const link = document.createElement('a');
+          //   // 使用斜杠后面添加多路径参数，这通常更可靠
+          //   link.href = `vscode://file/focus/explorer?r=${random}`;
+          //   link.click();
+          // },
+          
+          // 4. 打开命令面板
+          () => {
+            const link = document.createElement('a');
+            link.href = `vscode://workbench/command-palette`;
+            link.click();
+          }
         ];
         
-        // 先尝试第一个协议
-        window.location.href = protocols[0];
-        
-        // 然后尝试其他协议
-        let index = 1;
-        const tryNextProtocol = () => {
-          if (index < protocols.length) {
-            const link = document.createElement('a');
-            link.href = protocols[index];
-            link.click();
-            index++;
-            setTimeout(tryNextProtocol, 300);
+        // 按顺序尝试不同的激活方法，间隔300ms
+        let currentMethodIndex = 0;
+        const tryNextMethod = () => {
+          if (currentMethodIndex < activationMethods.length) {
+            activationMethods[currentMethodIndex]();
+            currentMethodIndex++;
+            setTimeout(tryNextMethod, 300);
+          } else {
+            // 所有方法都尝试后，显示手动指引
+            setTimeout(() => {
+              if (!document.hidden) {
+                this.showImprovedManualVSCodeSwitchDialog();
+              }
+            }, 500);
           }
         };
         
-        setTimeout(tryNextProtocol, 300);
+        // 开始尝试激活VSCode
+        tryNextMethod();
+        
+        this.$notify({
+          title: '正在切换到VSCode',
+          message: '正在尝试激活已运行的VSCode窗口',
+          type: 'info',
+          duration: 3000
+        });
         
       } catch (e) {
-        console.error('尝试打开VSCode时出错:', e);
-        this.$message.error('自动打开VSCode失败，请尝试手动打开');
-        this.showManualVSCodeOpeningDialog();
+        console.error('切换到现有VSCode窗口失败:', e);
+        this.showImprovedManualVSCodeSwitchDialog();
       }
-      
-      // 提示用户
-      this.$notify({
-        title: '正在打开VSCode',
-        message: '正在尝试打开VSCode窗口，请稍候...',
-        type: 'info',
-        duration: 3000
-      });
     },
-    
+
     // 显示手动打开VSCode的对话框
     showManualVSCodeOpeningDialog() {
       this.$alert(
@@ -396,6 +459,33 @@ export default {
             this.$message({
               type: 'success',
               message: '题目已加载，祝解题愉快！'
+            });
+          }
+        }
+      );
+    },
+    
+    // 改进的手动切换VSCode对话框
+    showImprovedManualVSCodeSwitchDialog() {
+      this.$alert(
+        `<div>
+          <p>自动切换VSCode窗口失败，请尝试以下步骤:</p>
+          <ol>
+            <li><strong>直接切换窗口</strong>: 使用Alt+Tab切换到已打开的VSCode窗口</li>
+            <li><strong>检查任务栏</strong>: 点击任务栏上的VSCode图标切换窗口</li>
+            <li><strong>手动启动</strong>: 如果VSCode未运行，请从开始菜单打开VSCode</li>
+          </ol>
+          <p>题目信息已保存，VSCode插件会自动加载相关题目。</p>
+        </div>`,
+        '手动切换到VSCode',
+        {
+          dangerouslyUseHTMLString: true,
+          confirmButtonText: '我已切换到VSCode',
+          center: true,
+          callback: () => {
+            this.$message({
+              type: 'success',
+              message: '题目已准备好，祝解题愉快！'
             });
           }
         }
