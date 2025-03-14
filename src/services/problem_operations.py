@@ -37,6 +37,8 @@ def create_tables():
                 title VARCHAR(255) NOT NULL,
                 difficulty ENUM('easy', 'medium', 'hard') NOT NULL,
                 content TEXT NOT NULL,
+                input_example TEXT,
+                output_example TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 INDEX (teacher_email)
@@ -54,16 +56,16 @@ def create_tables():
         cursor.close()
         conn.close()
 
-def submit_problem(email, title, difficulty, content):
+def submit_problem(email, title, difficulty, content, input_example, output_example):
     """提交新题目"""
     conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
         cursor.execute("""
-            INSERT INTO edu_problems (teacher_email, title, difficulty, content)
-            VALUES (%s, %s, %s, %s)
-        """, (email, title, difficulty, content))
+            INSERT INTO edu_problems (teacher_email, title, difficulty, content, input_example, output_example)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """, (email, title, difficulty, content, input_example, output_example))
         
         conn.commit()
         print(json.dumps({
@@ -86,7 +88,7 @@ def get_teacher_problems(email):
     
     try:
         cursor.execute("""
-            SELECT id, title, difficulty, content, created_at, updated_at
+            SELECT id, title, difficulty, content, input_example, output_example, created_at, updated_at
             FROM edu_problems
             WHERE teacher_email = %s
             ORDER BY created_at DESC
@@ -112,7 +114,7 @@ def get_teacher_problems(email):
         cursor.close()
         conn.close()
 
-def update_problem(problem_id, title, difficulty, content):
+def update_problem(problem_id, title, difficulty, content, input_example, output_example):
     """更新题目"""
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -120,9 +122,9 @@ def update_problem(problem_id, title, difficulty, content):
     try:
         cursor.execute("""
             UPDATE edu_problems 
-            SET title = %s, difficulty = %s, content = %s
+            SET title = %s, difficulty = %s, content = %s, input_example = %s, output_example = %s
             WHERE id = %s
-        """, (title, difficulty, content, problem_id))
+        """, (title, difficulty, content, input_example, output_example, problem_id))
         
         conn.commit()
         print(json.dumps({
@@ -169,7 +171,7 @@ def get_all_problems():
     
     try:
         cursor.execute("""
-            SELECT id, teacher_email, title, difficulty, content, created_at, updated_at
+            SELECT id, teacher_email, title, difficulty, content, input_example, output_example, created_at, updated_at
             FROM edu_problems
             ORDER BY created_at DESC
         """)
@@ -210,13 +212,13 @@ if __name__ == "__main__":
     
     # 根据操作类型调用相应的函数
     if operation == "submit_problem":
-        if len(sys.argv) != 6:
+        if len(sys.argv) != 8:
             print(json.dumps({
                 'success': False,
                 'message': "参数不足"
             }))
             sys.exit(1)
-        submit_problem(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5])
+        submit_problem(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6], sys.argv[7])
     
     elif operation == "get_teacher_problems":
         if len(sys.argv) != 3:
@@ -228,13 +230,13 @@ if __name__ == "__main__":
         get_teacher_problems(sys.argv[2])
     
     elif operation == "update_problem":
-        if len(sys.argv) != 6:
+        if len(sys.argv) != 8:
             print(json.dumps({
                 'success': False,
                 'message': "参数不足"
             }))
             sys.exit(1)
-        update_problem(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5])
+        update_problem(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6], sys.argv[7])
     
     elif operation == "delete_problem":
         if len(sys.argv) != 3:

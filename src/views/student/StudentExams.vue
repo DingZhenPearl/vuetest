@@ -48,10 +48,9 @@
             <div class="problem-content">
               {{ truncateContent(scope.row.content) }}
               <el-button 
-                v-if="scope.row.content && scope.row.content.length > 100" 
                 type="text" 
                 @click="showFullContent(scope.row)">
-                查看完整内容
+                查看完整题目
               </el-button>
             </div>
           </template>
@@ -97,6 +96,23 @@
           <div class="content-box">
             {{ currentProblem?.content }}
           </div>
+          
+          <!-- 添加输入示例显示 -->
+          <template v-if="currentProblem?.input_example">
+            <h3>输入示例:</h3>
+            <div class="example-box">
+              <pre>{{ currentProblem.input_example }}</pre>
+            </div>
+          </template>
+          
+          <!-- 添加输出示例显示 -->
+          <template v-if="currentProblem?.output_example">
+            <h3>输出示例:</h3>
+            <div class="example-box">
+              <pre>{{ currentProblem.output_example }}</pre>
+            </div>
+          </template>
+          
           <div class="dialog-footer">
             <p class="publish-time">发布时间: {{ formatDateTime(currentProblem?.created_at) }}</p>
           </div>
@@ -286,16 +302,104 @@ export default {
       // 保存到本地存储
       localStorage.setItem(`problem-workspace-${problem.id}`, JSON.stringify(workspaceInfo));
       
-      // 提示用户
-      this.$notify({
-        title: '准备解题',
-        message: `题目《${problem.title}》已加载，请在VSCode中创建新文件来解答`,
-        type: 'success',
-        duration: 5000
+      // 创建一个弹窗提示用户操作
+      this.$confirm('正在尝试打开VSCode，您可以选择以下方式：', '跳转到VSCode', {
+        confirmButtonText: '自动尝试',
+        cancelButtonText: '手动打开',
+        type: 'info',
+        center: true,
+        distinguishCancelAndClose: true,
+        showClose: false,
+      }).then(() => {
+        // 用户选择自动尝试
+        this.tryAutomaticVSCodeOpening();
+      }).catch(action => {
+        if (action === 'cancel') {
+          // 用户选择手动打开
+          this.showManualVSCodeOpeningDialog();
+        }
       });
       
-      // 使用VSCode协议尝试打开
-      window.open('vscode://');
+      // 关闭其他对话框
+      this.dialogVisible = false;
+    },
+    
+    // 尝试自动打开VSCode
+    tryAutomaticVSCodeOpening() {
+      try {
+        // 通过生成随机数来避免浏览器缓存
+        const random = Math.random().toString(36).substring(2);
+        
+        // 尝试各种可能的VSCode协议
+        const protocols = [
+          // 常规协议
+          `vscode://file/?r=${random}`,
+          // 文件管理器命令
+          `vscode://file-explorer/focus?r=${random}`,
+          // 通用窗口
+          `vscode://vscode.env.openWindow?r=${random}`,
+          // 设置编辑器
+          `vscode://workbench/settings?r=${random}`,
+          // 命令面板
+          `vscode://workbench/command-palette?r=${random}`,
+        ];
+        
+        // 先尝试第一个协议
+        window.location.href = protocols[0];
+        
+        // 然后尝试其他协议
+        let index = 1;
+        const tryNextProtocol = () => {
+          if (index < protocols.length) {
+            const link = document.createElement('a');
+            link.href = protocols[index];
+            link.click();
+            index++;
+            setTimeout(tryNextProtocol, 300);
+          }
+        };
+        
+        setTimeout(tryNextProtocol, 300);
+        
+      } catch (e) {
+        console.error('尝试打开VSCode时出错:', e);
+        this.$message.error('自动打开VSCode失败，请尝试手动打开');
+        this.showManualVSCodeOpeningDialog();
+      }
+      
+      // 提示用户
+      this.$notify({
+        title: '正在打开VSCode',
+        message: '正在尝试打开VSCode窗口，请稍候...',
+        type: 'info',
+        duration: 3000
+      });
+    },
+    
+    // 显示手动打开VSCode的对话框
+    showManualVSCodeOpeningDialog() {
+      this.$alert(
+        `<div>
+           <p>请按照以下步骤手动打开VSCode:</p>
+           <ol>
+             <li>切换到正在运行的VSCode窗口</li>
+             <li>如果VSCode未运行，请手动启动VSCode应用程序</li>
+             <li>题目信息已准备好，可以在VSCode中开始解题</li>
+           </ol>
+         </div>`, 
+        '手动打开VSCode', 
+        {
+          dangerouslyUseHTMLString: true,
+          confirmButtonText: '我已打开VSCode',
+          center: true,
+          callback: () => {
+            this.$message({
+              type: 'success',
+              message: '题目已加载，祝解题愉快！'
+            });
+          }
+        }
+      );
     },
     
     // 获取难度标签类型
@@ -425,6 +529,22 @@ h1 {
   min-height: 100px;
   max-height: 400px;
   overflow-y: auto;
+}
+
+/* 新增输入输出示例样式 */
+.problem-detail .example-box {
+  padding: 10px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  background-color: #f5f5f5;
+  margin-bottom: 15px;
+  overflow-x: auto;
+}
+
+.problem-detail .example-box pre {
+  margin: 0;
+  font-family: 'Courier New', Courier, monospace;
+  white-space: pre-wrap;
 }
 
 .publish-time {

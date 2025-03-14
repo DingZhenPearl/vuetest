@@ -27,6 +27,18 @@
                       placeholder="请输入题目详情" :rows="6"></el-input>
           </el-form-item>
           
+          <!-- 新增输入示例字段 -->
+          <el-form-item label="输入示例" prop="inputExample">
+            <el-input type="textarea" v-model="problemForm.inputExample" 
+                      placeholder="请输入示例数据" :rows="3"></el-input>
+          </el-form-item>
+          
+          <!-- 新增输出示例字段 -->
+          <el-form-item label="输出示例" prop="outputExample">
+            <el-input type="textarea" v-model="problemForm.outputExample" 
+                      placeholder="请输入期望输出" :rows="3"></el-input>
+          </el-form-item>
+          
           <el-form-item>
             <el-button type="primary" @click="submitProblem" :loading="submitting">
               {{ isEditing ? '更新题目' : '提交题目' }}
@@ -116,7 +128,9 @@ export default {
         id: null,
         title: '',
         difficulty: '',
-        content: ''
+        content: '',
+        inputExample: '',   // 新增输入示例字段
+        outputExample: ''   // 新增输出示例字段
       },
       rules: {
         title: [
@@ -128,7 +142,8 @@ export default {
         ],
         content: [
           { required: true, message: '请输入题目详情', trigger: 'blur' }
-        ]
+        ],
+        // 输入输出示例可以为空，不添加required规则
       },
       problems: [],
       isEditing: false,
@@ -256,7 +271,9 @@ export default {
             body: JSON.stringify({
               title: this.problemForm.title,
               difficulty: this.problemForm.difficulty,
-              content: this.problemForm.content
+              content: this.problemForm.content,
+              inputExample: this.problemForm.inputExample,   // 添加输入示例
+              outputExample: this.problemForm.outputExample  // 添加输出示例
             })
           });
         } else {
@@ -268,7 +285,9 @@ export default {
               email: email,
               title: this.problemForm.title,
               difficulty: this.problemForm.difficulty,
-              content: this.problemForm.content
+              content: this.problemForm.content,
+              inputExample: this.problemForm.inputExample,   // 添加输入示例
+              outputExample: this.problemForm.outputExample  // 添加输出示例
             })
           });
         }
@@ -311,6 +330,8 @@ export default {
       this.problemForm.title = problem.title;
       this.problemForm.difficulty = problem.difficulty;
       this.problemForm.content = problem.content;
+      this.problemForm.inputExample = problem.input_example || '';  // 添加输入示例，处理可能为null的情况
+      this.problemForm.outputExample = problem.output_example || ''; // 添加输出示例，处理可能为null的情况
       
       // 滚动到表单顶部
       window.scrollTo({

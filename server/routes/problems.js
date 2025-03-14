@@ -63,13 +63,15 @@ router.post('/submit', async (req, res) => {
     */
     
     // 取消注释完整实现的代码
-    const { email, title, difficulty, content } = req.body;
+    const { email, title, difficulty, content, inputExample, outputExample } = req.body;
     const result = await executePythonScript('problem_operations.py', [
       'submit_problem',
       email,
       title,
       difficulty,
-      content
+      content,
+      inputExample || '',  // 处理可能为空的情况
+      outputExample || ''  // 处理可能为空的情况
     ]);
     res.json(result);
   } catch (error) {
@@ -93,13 +95,15 @@ router.put('/:id', async (req, res) => {
     
     // 完整实现
     const problemId = req.params.id;
-    const { title, difficulty, content } = req.body;
+    const { title, difficulty, content, inputExample, outputExample } = req.body;
     const result = await executePythonScript('problem_operations.py', [
       'update_problem',
       problemId,
       title,
       difficulty,
-      content
+      content,
+      inputExample || '',  // 处理可能为空的情况
+      outputExample || ''  // 处理可能为空的情况
     ]);
     res.json(result);
   } catch (error) {
