@@ -4,11 +4,12 @@
 const express = require('express');
 const router = express.Router();
 const { executePythonScript } = require('../services/python');
-const { generateAIResponse } = require('../services/ai');
+// 因为需要流式响应，添加一个新的方法导入
+const { generateAIResponse, generateStreamingResponse } = require('../services/ai');
 
 /**
  * 处理聊天消息
- * 接收用户消息，调用AI模型生成回复
+ * 接收用户消息，调用AI模型生成回复（流式响应）
  */
 router.post('/message', async (req, res) => {
     try {
@@ -23,11 +24,24 @@ router.post('/message', async (req, res) => {
         // 添加当前用户消息
         messages.push({ role: "user", content: message });
         
-        const aiResponse = await generateAIResponse(messages);
-        res.json({ success: true, message: aiResponse });
+        // 设置响应头以支持流式传输
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+        
+        // 使用流式生成回复
+        await generateStreamingResponse(messages, (token) => {
+            // 每次有新token时发送到前端
+            res.write(`data: ${JSON.stringify({ token })}\n\n`);
+        }, () => {
+            // 完成时发送结束信号
+            res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+            res.end();
+        });
     } catch (error) {
         console.error('OpenAI API调用失败:', error);
-        res.status(500).json({ success: false, message: '服务器错误' });
+        res.write(`data: ${JSON.stringify({ error: '服务器错误' })}\n\n`);
+        res.end();
     }
 });
 
