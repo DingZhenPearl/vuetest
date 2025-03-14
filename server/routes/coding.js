@@ -3,8 +3,9 @@
  */
 const express = require('express');
 const router = express.Router();
-const { executePythonScript } = require('../services/python');
 const codingService = require('../services/coding');
+// 引入C++代码验证服务
+const { compileAndRunCpp, validateCppCode } = require('../services/cppRuntime');
 
 /**
  * 提交编程数据
@@ -102,6 +103,58 @@ router.get('/problem/:problemId', async (req, res) => {
     res.json(result);
   } catch (error) {
     console.error('获取题目统计数据失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '服务器错误',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 运行C++代码
+ */
+router.post('/run-cpp', async (req, res) => {
+  try {
+    const { code, input } = req.body;
+    
+    if (!code) {
+      return res.status(400).json({
+        success: false,
+        message: '代码不能为空'
+      });
+    }
+    
+    const result = await compileAndRunCpp(code, input || '');
+    res.json(result);
+  } catch (error) {
+    console.error('运行C++代码失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '服务器错误',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 使用样例验证C++代码
+ */
+router.post('/verify-cpp', async (req, res) => {
+  try {
+    const { code, input, expectedOutput } = req.body;
+    
+    if (!code || !expectedOutput) {
+      return res.status(400).json({
+        success: false,
+        message: '代码和预期输出不能为空'
+      });
+    }
+    
+    const result = await validateCppCode(code, input || '', expectedOutput);
+    res.json(result);
+  } catch (error) {
+    console.error('验证C++代码失败:', error);
     res.status(500).json({
       success: false,
       message: '服务器错误',

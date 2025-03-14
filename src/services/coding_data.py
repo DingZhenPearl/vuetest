@@ -119,7 +119,7 @@ def submit_data(data_json_str):
         stats_record = cursor.fetchone()
         
         if not stats_record:
-            # 创建新记录
+            # 创建新记录，确保first_view_time正确插入
             cursor.execute("""
                 INSERT INTO edu_problem_solving_stats (
                     student_id, problem_id, total_attempts, 
@@ -130,7 +130,7 @@ def submit_data(data_json_str):
                 data['problem_id'],
                 1,  # 首次尝试
                 data['submit_result'] == 'success',
-                data.get('first_view_time')
+                data.get('first_view_time')  # 确保此处使用提交的first_view_time
             ))
             
             # 如果一次就成功，记录解决时间
@@ -140,7 +140,7 @@ def submit_data(data_json_str):
                     SET solved_time = %s,
                         attempts_until_success = 1,
                         time_spent_seconds = TIMESTAMPDIFF(SECOND, first_view_time, %s)
-                    WHERE student_id = %s AND problem_id = %s
+                    WHERE student_id = %s AND problem_id = %s AND first_view_time IS NOT NULL
                 """, (
                     data.get('submission_time'),
                     data.get('submission_time'),
@@ -151,9 +151,10 @@ def submit_data(data_json_str):
             # 更新现有记录
             cursor.execute("""
                 UPDATE edu_problem_solving_stats
-                SET total_attempts = total_attempts + 1
+                SET total_attempts = total_attempts + 1,
+                    first_view_time = COALESCE(first_view_time, %s)
                 WHERE student_id = %s AND problem_id = %s
-            """, (data['student_id'], data['problem_id']))
+            """, (data.get('first_view_time'), data['student_id'], data['problem_id']))
             
             # 如果之前未解决，但现在成功了
             if not stats_record[5] and data['submit_result'] == 'success':
@@ -163,7 +164,7 @@ def submit_data(data_json_str):
                         solved_time = %s,
                         attempts_until_success = total_attempts,
                         time_spent_seconds = TIMESTAMPDIFF(SECOND, first_view_time, %s)
-                    WHERE student_id = %s AND problem_id = %s
+                    WHERE student_id = %s AND problem_id = %s AND first_view_time IS NOT NULL
                 """, (
                     data.get('submission_time'),
                     data.get('submission_time'),

@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import Login from '../views/LogIn.vue'
+import Login from '../views/logIn.vue'
 import TeacherHome from '../views/teacher/teacherHome.vue'
 import StudentHome from '../views/student/studentHome.vue'
 import StudentAiChat from '../views/student/StudentAiChat.vue' // 导入新组件
@@ -13,11 +13,11 @@ const TeacherProblems = () => import('../views/teacher/TeacherProblems.vue');
 const routes = [
   {
     path: '/',
-    redirect: '/LogIn'
+    redirect: '/logIn'
   },
   {
-    path: '/LogIn',
-    name: 'LogIn',
+    path: '/logIn',
+    name: 'logIn',
     component: Login
   },
   // 教师相关路由

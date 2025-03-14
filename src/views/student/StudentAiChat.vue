@@ -74,7 +74,8 @@ export default {
       isNewChat: true,
       userMessage: '',
       chatHistory: [],
-      typingStatus: ''
+      typingStatus: '',
+      streamController: null
     }
   },
   mounted() {
@@ -121,43 +122,98 @@ export default {
       this.userMessage = ''
       this.showTypingIndicator()
       
+      // 如果有正在进行的请求，终止它
+      if (this.streamController) {
+        this.streamController.abort()
+      }
+      
+      // 创建新的AbortController用于可能需要中断的请求
+      this.streamController = new AbortController()
+      
+      // 添加一个空的AI消息，用于逐步填充内容
+      this.currentMessages.push({ sender: 'ai', content: '' })
+      const aiMessageIndex = this.currentMessages.length - 1
+      
       try {
-        const response = await fetch('/api/chat/message', { // 更新API路径
+        // 使用EventSource进行SSE连接
+        const response = await fetch('/api/chat/message', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({ 
             message,
-            messageHistory: this.currentMessages.slice(0, -1)
-          })
+            messageHistory: this.currentMessages.slice(0, -2) // 不包括用户刚发送的消息和空的AI消息
+          }),
+          signal: this.streamController.signal
         })
         
-        const data = await response.json()
+        // 确保响应是可读流
+        const reader = response.body.getReader()
+        const decoder = new TextDecoder()
+        let completeResponse = ''
         
-        if (data.success) {
-          // 添加AI回复
-          this.currentMessages.push({ sender: 'ai', content: data.message })
-          
-          // 保存或更新聊天记录
-          if (this.isNewChat) {
-            const result = await this.saveChat()
-            if (result && result.success) {
-              this.currentChatId = result.id
-              this.isNewChat = false
-              await this.loadChatHistory()
-            }
-          } else {
-            await this.updateChat()
+        // 读取流
+        let reading = true;
+        while (reading) {
+          const { value, done } = await reader.read()
+          if (done) {
+            reading = false;
+            break;
           }
-        } else {
-          this.currentMessages.push({ sender: 'ai', content: '抱歉，发生了错误。请稍后重试。' })
+          
+          // 解码收到的数据
+          const chunk = decoder.decode(value, { stream: true })
+          
+          // 处理SSE格式数据
+          const lines = chunk.split('\n\n')
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.substring(6))
+                
+                if (data.error) {
+                  // 处理错误
+                  this.currentMessages[aiMessageIndex].content = '抱歉，发生了错误。请稍后重试。'
+                  break
+                } else if (data.done) {
+                  // 流结束
+                  this.hideTypingIndicator()
+                  
+                  // 保存或更新聊天记录
+                  if (this.isNewChat) {
+                    const result = await this.saveChat()
+                    if (result && result.success) {
+                      this.currentChatId = result.id
+                      this.isNewChat = false
+                      await this.loadChatHistory()
+                    }
+                  } else {
+                    await this.updateChat()
+                  }
+                  break
+                } else if (data.token) {
+                  // 添加新token到当前AI消息
+                  completeResponse += data.token
+                  this.currentMessages[aiMessageIndex].content = completeResponse
+                  this.scrollToBottom()
+                }
+              } catch (e) {
+                console.error('解析SSE数据出错:', e)
+              }
+            }
+          }
         }
       } catch (error) {
-        console.error('发送消息失败:', error)
-        this.currentMessages.push({ sender: 'ai', content: '抱歉，发生了错误。请稍后重试。' })
+        if (error.name === 'AbortError') {
+          console.log('请求被用户取消')
+        } else {
+          console.error('发送消息失败:', error)
+          this.currentMessages[aiMessageIndex].content = '抱歉，发生了错误。请稍后重试。'
+        }
       } finally {
         this.hideTypingIndicator()
+        this.streamController = null
       }
     },
     
