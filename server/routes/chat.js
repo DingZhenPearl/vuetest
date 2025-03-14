@@ -5,7 +5,7 @@ const express = require('express');
 const router = express.Router();
 const { executePythonScript } = require('../services/python');
 // 因为需要流式响应，添加一个新的方法导入
-const { generateAIResponse, generateStreamingResponse } = require('../services/ai');
+const { generateStreamingResponse } = require('../services/ai');
 
 /**
  * 处理聊天消息
