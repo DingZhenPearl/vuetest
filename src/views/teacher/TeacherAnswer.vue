@@ -5,7 +5,7 @@
 
     <!-- 主内容区 -->
     <div class="main-content">
-      <h1>学生问题列表</h1>
+      <h1>学生问题讨论区</h1>
 
       <!-- 加载状态 -->
       <div v-if="loading" class="loading-container">
@@ -19,65 +19,128 @@
           暂无学生提问
         </div>
 
-        <div v-for="question in questions" :key="question.id" class="question-card">
-          <!-- 问题头部信息 -->
-          <div class="question-header">
-            <div class="student-info">学生邮箱: {{ question.email }}</div>
-            <div class="time-info">提问时间: {{ formatDate(question.created_at) }}</div>
+        <div class="forum-list">
+          <table class="forum-table" v-if="questions.length > 0">
+            <thead>
+              <tr>
+                <th class="title-col">话题</th>
+                <th class="author-col">发布者</th>
+                <th class="status-col">状态</th>
+                <th class="date-col">发布时间</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="question in questions" :key="question.id" class="question-row" @click="viewQuestionDetail(question)">
+                <td class="title-col">
+                  <div class="question-title">{{ question.title }}</div>
+                  <div class="reply-count">
+                    {{ getReplyCount(question) }} 回复
+                  </div>
+                </td>
+                <td class="author-col">{{ question.email }}</td>
+                <td class="status-col">
+                  <span :class="['status-badge', question.status === 'pending' ? 'status-pending' : 'status-answered']">
+                    {{ question.status === 'pending' ? '未回复' : '已回复' }}
+                  </span>
+                </td>
+                <td class="date-col">{{ formatDate(question.created_at) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 问题详情弹窗 -->
+      <div v-if="currentQuestion" class="question-detail-modal">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h2>话题详情</h2>
+            <button @click="closeQuestionDetail" class="close-btn">&times;</button>
           </div>
-
-          <!-- 问题内容 -->
-          <h3>{{ question.title }}</h3>
-          <p>{{ question.content }}</p>
-          <span 
-            :class="['status-badge', question.status === 'pending' ? 'status-pending' : 'status-answered']"
-          >
-            {{ question.status === 'pending' ? '待回答' : '已回答' }}
-          </span>
-
-          <!-- 回答区域 -->
-          <div v-if="question.answer" class="answer-content">
-            <div class="answer-header">
-              <strong>回答：</strong>
-              <span class="time-info">回答时间: {{ formatDate(question.answered_at) }}</span>
-            </div>
-            <p>{{ question.answer }}</p>
-          </div>
-          <form v-else class="answer-form" @submit.prevent="submitAnswer(question.id)">
-            <textarea v-model="answerTexts[question.id]" placeholder="输入你的回答..." required></textarea>
-            <button type="submit" class="submit-btn" :disabled="submittingAnswer">提交回答</button>
-          </form>
-
-          <!-- 追问/追答列表 -->
-          <div v-if="question.follow_ups && question.follow_ups.length > 0">
-            <div 
-              v-for="(followUp, index) in getFollowUps(question.follow_ups)" 
-              :key="index"
-              :class="['follow-up', followUp.user === 'teacher' ? 'teacher' : '']"
-            >
-              <div class="follow-up-header">
-                <span>{{ followUp.user === 'teacher' ? '老师追答' : '学生追问' }}</span>
-                <span class="time-info">{{ formatDate(followUp.time) }}</span>
+          
+          <div class="topic-container">
+            <!-- 主题内容 -->
+            <div class="post main-post">
+              <div class="post-header">
+                <h3 class="post-title">{{ currentQuestion.title }}</h3>
+                <div class="post-meta">
+                  <span class="author student">{{ currentQuestion.email }}</span>
+                  <span class="post-time">{{ formatDate(currentQuestion.created_at) }}</span>
+                  <span :class="['status-label', currentQuestion.status === 'pending' ? 'status-pending' : 'status-answered']">
+                    {{ currentQuestion.status === 'pending' ? '未回复' : '已回复' }}
+                  </span>
+                </div>
               </div>
-              <p>{{ followUp.content }}</p>
+              <div class="post-content">{{ currentQuestion.content }}</div>
+            </div>
+
+            <!-- 回复列表 -->
+            <div class="replies">
+              <!-- 老师的回答作为第一条回复 -->
+              <div v-if="currentQuestion.answer" class="post reply">
+                <div class="post-header">
+                  <div class="post-meta">
+                    <span class="author teacher">我</span>
+                    <span class="post-time">{{ formatDate(currentQuestion.answered_at) }}</span>
+                    <button 
+                      @click="deleteAnswer(currentQuestion.id)" 
+                      class="delete-reply-btn"
+                      title="删除回复">
+                      <i class="fas fa-trash"></i> 删除
+                    </button>
+                  </div>
+                </div>
+                <div class="post-content">
+                  {{ currentQuestion.answer }}
+                </div>
+              </div>
+
+              <!-- 追问追答显示为普通的论坛回复 -->
+              <template v-if="currentQuestion.follow_ups && currentQuestion.follow_ups.length > 0">
+                <div 
+                  v-for="(followUp, index) in getFollowUps(currentQuestion.follow_ups)" 
+                  :key="index"
+                  class="post reply">
+                  <div class="post-header">
+                    <div class="post-meta">
+                      <span :class="['author', followUp.user === 'teacher' ? 'teacher' : 'student']">
+                        {{ followUp.user === 'teacher' ? '我' : currentQuestion.email }}
+                      </span>
+                      <span class="post-time">{{ formatDate(followUp.time) }}</span>
+                      <!-- 只允许删除自己(老师)的回复 -->
+                      <button 
+                        v-if="followUp.user === 'teacher'" 
+                        @click="deleteFollowUp(currentQuestion.id, index)" 
+                        class="delete-reply-btn"
+                        title="删除回复">
+                        <i class="fas fa-trash"></i> 删除
+                      </button>
+                    </div>
+                  </div>
+                  <div class="post-content">
+                    {{ followUp.content }}
+                  </div>
+                </div>
+              </template>
+
+              <!-- 统一的回复表单 - 取代原来的两个表单 -->
+              <form class="reply-form" @submit.prevent="submitReply(currentQuestion.id)">
+                <h3 class="reply-title">{{ !currentQuestion.answer ? '回复主题' : '添加回复' }}</h3>
+                <textarea 
+                  v-model="replyText" 
+                  placeholder="输入你的回复..." 
+                  required
+                ></textarea>
+                <button 
+                  type="submit" 
+                  class="submit-btn" 
+                  :disabled="submittingReply"
+                >
+                  发表回复
+                </button>
+              </form>
             </div>
           </div>
-
-          <!-- 追答表单 -->
-          <form class="follow-up-form" @submit.prevent="submitFollowUpAnswer(question.id)">
-            <textarea 
-              v-model="followUpTexts[question.id]" 
-              placeholder="输入追答内容..." 
-              required
-            ></textarea>
-            <button 
-              type="submit" 
-              class="submit-btn" 
-              :disabled="submittingFollowUp"
-            >
-              提交追答
-            </button>
-          </form>
         </div>
       </div>
     </div>
@@ -96,10 +159,11 @@ export default {
     return {
       questions: [],
       loading: true,
-      submittingAnswer: false,
-      submittingFollowUp: false,
-      answerTexts: {},   // 存储每个问题的回答文本
-      followUpTexts: {}  // 存储每个问题的追答文本
+      currentQuestion: null,
+      submittingReply: false,
+      replyText: '',  // 统一的回复文本
+      answerTexts: {}, // 保留这个以避免破坏其他逻辑
+      followUpTexts: {} // 保留这个以避免破坏其他逻辑
     }
   },
   created() {
@@ -135,86 +199,140 @@ export default {
       }
     },
     
-    // 提交问题回答
-    async submitAnswer(questionId) {
-      const answer = this.answerTexts[questionId].trim()
-      if (!answer) return
+    // 查看问题详情
+    viewQuestionDetail(question) {
+      this.currentQuestion = question
+      this.replyText = '' // 重置回复文本
+    },
+    
+    // 关闭问题详情
+    closeQuestionDetail() {
+      this.currentQuestion = null
+    },
+    
+    // 统一的回复提交处理
+    async submitReply(questionId) {
+      if (!this.replyText.trim()) return
       
-      this.submittingAnswer = true
+      this.submittingReply = true
       
       try {
-        const response = await fetch('/api/questions/answer', { // 更新API路径
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            questionId,
-            answer
-          })
-        })
-        
-        const data = await response.json()
-        
-        if (data.success) {
-          this.$notify({
-            title: '成功',
-            message: '回答提交成功',
-            type: 'success'
-          })
-          this.answerTexts[questionId] = ''
-          await this.loadAllQuestions()
+        let  responseData
+        // endpoint,
+        // 根据问题是否已回答选择不同的API
+        if (!this.currentQuestion.answer) {
+          // 首次回答
+          responseData = await this.submitFirstAnswer(questionId, this.replyText)
         } else {
-          this.$notify({
-            title: '失败',
-            message: data.message || '提交回答失败',
-            type: 'error'
-          })
+          // 追加回复
+          responseData = await this.submitFollowUpAnswer(questionId, this.replyText)
+        }
+        
+        if (responseData.success) {
+          this.replyText = ''
+          await this.loadAllQuestions()
+          
+          // 更新当前问题
+          if (this.currentQuestion && this.currentQuestion.id === questionId) {
+            this.currentQuestion = this.questions.find(q => q.id === questionId)
+          }
+        } else {
+          alert(responseData.message || '提交回复失败')
         }
       } catch (error) {
-        console.error('提交回答出错:', error)
-        this.$notify({
-          title: '错误',
-          message: '提交失败，请重试',
-          type: 'error'
-        })
+        console.error('提交回复出错:', error)
+        alert('提交失败，请重试')
       } finally {
-        this.submittingAnswer = false
+        this.submittingReply = false
       }
     },
     
-    // 提交追答
-    async submitFollowUpAnswer(questionId) {
-      const content = this.followUpTexts[questionId].trim()
-      if (!content) return
+    // 提交首次回答
+    async submitFirstAnswer(questionId, answer) {
+      const response = await fetch('/api/questions/answer', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          questionId,
+          answer
+        })
+      })
       
-      this.submittingFollowUp = true
+      return await response.json()
+    },
+    
+    // 提交追加回答
+    async submitFollowUpAnswer(questionId, content) {
+      const response = await fetch('/api/questions/follow-up-answer', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          questionId,
+          content
+        })
+      })
+      
+      return await response.json()
+    },
+    
+    // 删除回答
+    async deleteAnswer(questionId) {
+      if (!confirm('确定要删除这条回复吗？删除后不可恢复。')) {
+        return
+      }
       
       try {
-        const response = await fetch('/api/questions/follow-up-answer', { // 更新API路径
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            questionId,
-            content
-          })
+        // 这里需要添加一个新的API端点处理删除回答
+        const response = await fetch(`/api/questions/answer/${questionId}`, {
+          method: 'DELETE'
         })
         
         const data = await response.json()
         
         if (data.success) {
-          this.followUpTexts[questionId] = ''
           await this.loadAllQuestions()
+          // 更新当前问题
+          if (this.currentQuestion && this.currentQuestion.id === questionId) {
+            this.currentQuestion = this.questions.find(q => q.id === questionId)
+          }
         } else {
-          alert(data.message || '提交追答失败')
+          alert(data.message || '删除回复失败')
         }
       } catch (error) {
-        console.error('提交追答出错:', error)
-        alert('提交失败，请重试')
-      } finally {
-        this.submittingFollowUp = false
+        console.error('删除回答出错:', error)
+        alert('删除失败，请重试')
+      }
+    },
+    
+    // 删除追答
+    async deleteFollowUp(questionId, index) {
+      if (!confirm('确定要删除这条回复吗？删除后不可恢复。')) {
+        return
+      }
+      
+      try {
+        const response = await fetch(`/api/questions/follow-up/${questionId}/${index}`, {
+          method: 'DELETE'
+        })
+        const data = await response.json()
+        
+        if (data.success) {
+          await this.loadAllQuestions()
+          
+          // 更新当前问题
+          if (this.currentQuestion && this.currentQuestion.id === questionId) {
+            this.currentQuestion = this.questions.find(q => q.id === questionId)
+          }
+        } else {
+          alert(data.message || '删除回复失败')
+        }
+      } catch (error) {
+        console.error('删除回复出错:', error)
+        alert('删除失败，请重试')
       }
     },
     
@@ -231,6 +349,28 @@ export default {
         console.error('解析追问数据失败:', e)
         return []
       }
+    },
+    
+    // 获取回复数量
+    getReplyCount(question) {
+      let count = 0
+      
+      // 如果有回答，计数+1
+      if(question.answer) count++
+      
+      // 加上追问/追答的数量
+      if(question.follow_ups) {
+        try {
+          const followUps = typeof question.follow_ups === 'string' 
+            ? JSON.parse(question.follow_ups) 
+            : question.follow_ups
+          count += followUps.length
+        } catch(e) {
+          console.error('解析追问数据失败:', e)
+        }
+      }
+      
+      return count
     },
     
     // 格式化日期
@@ -258,6 +398,7 @@ export default {
 .teacher-answer-page {
   display: flex;
   min-height: 100vh;
+  background-color: #f5f5f5;
 }
 
 .main-content {
@@ -265,10 +406,9 @@ export default {
   padding: 20px;
   width: calc(100% - 250px);
   box-sizing: border-box;
-  background-color: #f4f4f4;
 }
 
-h1 {
+h1, h2, h3 {
   color: #2c3e50;
   margin-bottom: 20px;
 }
@@ -308,44 +448,76 @@ h1 {
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-.questions-list {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.question-card {
-  border: 1px solid #ddd;
-  padding: 20px;
+/* 论坛列表样式 */
+.forum-list {
+  background: white;
   border-radius: 8px;
-  background-color: white;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  overflow: hidden;
 }
 
-.question-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 15px;
+.forum-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
 }
 
-.student-info {
-  color: #666;
-  font-size: 14px;
+.forum-table th {
+  background-color: #f8f9fa;
+  padding: 15px;
+  border-bottom: 2px solid #eee;
+  font-weight: bold;
 }
 
-.time-info {
-  color: #666;
-  font-size: 14px;
+.forum-table td {
+  padding: 15px;
+  border-bottom: 1px solid #eee;
+}
+
+.question-row {
+  cursor: pointer;
+}
+
+.question-row:hover {
+  background-color: #f9f9f9;
+}
+
+.title-col {
+  width: 40%;
+}
+
+.author-col {
+  width: 20%;
+}
+
+.status-col {
+  width: 15%;
+}
+
+.date-col {
+  width: 25%;
+}
+
+.question-title {
+  font-weight: 500;
+  color: #2c3e50;
+  margin-bottom: 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.reply-count {
+  font-size: 12px;
+  color: #888;
 }
 
 .status-badge {
-  display: inline-block;
   padding: 4px 8px;
   border-radius: 4px;
   font-size: 12px;
   font-weight: bold;
-  margin: 10px 0;
+  display: inline-block;
 }
 
 .status-pending {
@@ -358,21 +530,143 @@ h1 {
   color: white;
 }
 
-.answer-form {
-  margin-top: 15px;
+/* 问题详情弹窗 */
+.question-detail-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
 }
 
-.answer-form textarea,
-.follow-up-form textarea {
+.modal-content {
+  background-color: #fff;
+  border-radius: 8px;
+  width: 80%;
+  max-width: 1000px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  border-bottom: 1px solid #eee;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #666;
+}
+
+close-btn:hover {
+  color: #333;
+}
+
+/* 主题详情样式 - 论坛风格 */
+.topic-container {
+  padding: 0;
+}
+
+.post {
+  padding: 20px;
+  border-bottom: 1px solid #eee;
+}
+
+.post-header {
+  margin-bottom: 15px;
+}
+
+.post-title {
+  margin: 0 0 10px 0;
+  font-size: 20px;
+}
+
+.post-meta {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  color: #666;
+  font-size: 14px;
+  width: 100%;
+}
+
+.author {
+  font-weight: bold;
+  color: #333;
+}
+
+.author.teacher {
+  color: #4CAF50;
+}
+
+.author.student {
+  color: #2196F3;
+}
+
+.post-time {
+  color: #888;
+}
+
+.status-label {
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.post-content {
+  line-height: 1.6;
+  font-size: 16px;
+  white-space: pre-line;
+}
+
+.replies {
+  border-top: 1px solid #ddd;
+}
+
+.reply {
+  padding: 15px 20px;
+  background-color: white;
+}
+
+.reply:nth-child(odd) {
+  background-color: #f9f9f9;
+}
+
+.reply-form {
+  padding: 20px;
+  border-top: 1px solid #ddd;
+  background-color: white;
+}
+
+.reply-title {
+  font-size: 18px;
+  margin-bottom: 15px;
+  color: #333;
+}
+
+.reply-form textarea {
   width: 100%;
   min-height: 100px;
   padding: 10px;
-  margin: 10px 0;
   border: 1px solid #ddd;
   border-radius: 4px;
-  resize: vertical;
+  font-size: 16px;
   font-family: inherit;
+  margin-bottom: 15px;
   box-sizing: border-box;
+  resize: vertical;
 }
 
 .submit-btn {
@@ -394,43 +688,23 @@ h1 {
   cursor: not-allowed;
 }
 
-.answer-content {
-  margin: 15px 0;
-  padding: 15px;
-  background-color: #f9f9f9;
-  border-left: 3px solid #4CAF50;
+/* 删除回复按钮样式 */
+.delete-reply-btn {
+  background-color: transparent;
+  border: none;
+  color: #f44336;
+  cursor: pointer;
+  padding: 3px 8px;
+  font-size: 12px;
   border-radius: 4px;
-}
-
-.answer-header {
+  transition: all 0.3s;
+  margin-left: auto;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 10px;
-  padding-bottom: 5px;
-  border-bottom: 1px solid #eee;
+  gap: 5px;
 }
 
-.follow-up {
-  margin: 15px 0;
-  padding: 12px;
-  border-left: 3px solid #2196F3;
-  background: #f8f9fa;
-  border-radius: 4px;
-}
-
-.follow-up.teacher {
-  border-left-color: #4CAF50;
-}
-
-.follow-up-header {
-  display: flex;
-  justify-content: space-between;
-  color: #666;
-  margin-bottom: 8px;
-}
-
-.follow-up-form {
-  margin-top: 20px;
+.delete-reply-btn:hover {
+  background-color: rgba(244, 67, 54, 0.1);
 }
 </style>

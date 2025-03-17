@@ -144,4 +144,39 @@ router.post('/follow-up-answer', async (req, res) => {
     }
 });
 
+/**
+ * 删除回复（追问/追答）
+ */
+router.delete('/follow-up/:questionId/:index', async (req, res) => {
+    try {
+        const { questionId, index } = req.params;
+        const result = await executePythonScript('qa_operations.py', [
+            'delete_follow_up',
+            questionId,
+            index
+        ]);
+        res.json(result);
+    } catch (error) {
+        console.error('删除回复失败:', error);
+        res.status(500).json({ success: false, message: '服务器错误' });
+    }
+});
+
+/**
+ * 删除教师回答
+ */
+router.delete('/answer/:id', async (req, res) => {
+    try {
+        const questionId = req.params.id;
+        const result = await executePythonScript('qa_operations.py', [
+            'delete_answer',
+            questionId
+        ]);
+        res.json(result);
+    } catch (error) {
+        console.error('删除回答失败:', error);
+        res.status(500).json({ success: false, message: '服务器错误' });
+    }
+});
+
 module.exports = router;

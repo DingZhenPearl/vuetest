@@ -177,6 +177,33 @@ def submit_answer(question_id, answer):
         cursor.close()
         conn.close()
 
+def delete_answer(question_id):
+    """删除问题的回答"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("""
+            UPDATE edu_qa_questions
+            SET answer = NULL,
+                status = 'pending',
+                answered_at = NULL
+            WHERE id = %s
+        """, (question_id,))
+        
+        conn.commit()
+        print(json.dumps({
+            'success': True,
+            'message': "回答删除成功"
+        }))
+    except mysql.connector.Error as err:
+        print(json.dumps({
+            'success': False,
+            'message': f"删除回答失败: {str(err)}"
+        }))
+    finally:
+        cursor.close()
+        conn.close()
 
 def delete_question(question_id):
     """删除未回答的问题"""
@@ -305,6 +332,63 @@ def submit_follow_up(question_id, content, is_teacher=False):
         cursor.close()
         conn.close()
 
+def delete_follow_up(question_id, follow_up_index):
+    """删除特定问题的某个回复（追问/追答）"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        # 获取当前的follow_ups数据
+        cursor.execute("SELECT follow_ups FROM edu_qa_questions WHERE id = %s", (question_id,))
+        result = cursor.fetchone()
+        if not result or result[0] is None:
+            print(json.dumps({
+                'success': False,
+                'message': "找不到相关回复"
+            }))
+            return
+            
+        try:
+            follow_ups = json.loads(result[0]) if result[0] else []
+            
+            # 检查索引是否有效
+            index = int(follow_up_index)
+            if index < 0 or index >= len(follow_ups):
+                print(json.dumps({
+                    'success': False,
+                    'message': "回复索引无效"
+                }))
+                return
+                
+            # 删除指定索引的回复
+            del follow_ups[index]
+            
+            # 更新数据库
+            cursor.execute("""
+                UPDATE edu_qa_questions 
+                SET follow_ups = %s
+                WHERE id = %s
+            """, (json.dumps(follow_ups), question_id))
+            
+            conn.commit()
+            print(json.dumps({
+                'success': True,
+                'message': "回复删除成功"
+            }))
+            
+        except (json.JSONDecodeError, ValueError) as e:
+            print(json.dumps({
+                'success': False,
+                'message': f"数据格式错误: {str(e)}"
+            }))
+            
+    except mysql.connector.Error as err:
+        print(json.dumps({
+            'success': False,
+            'message': f"删除回复失败: {str(err)}"
+        }))
+    finally:
+        cursor.close()
+        conn.close()
 
 if __name__ == "__main__":
     # 确保数据表存在
@@ -351,9 +435,6 @@ if __name__ == "__main__":
             sys.exit(1)
         submit_answer(sys.argv[2], sys.argv[3])
     
-    
-    
-    # Add to qa_operations.py main section
     elif operation == "delete_question":
         if len(sys.argv) != 3:
             print(json.dumps({
@@ -371,10 +452,7 @@ if __name__ == "__main__":
             }))
             sys.exit(1)
         update_question(sys.argv[2], sys.argv[3], sys.argv[4])
-    
-    
-    
-        # 添加到 qa_operations.py 的 main 部分
+
     elif operation == "submit_follow_up":
         if len(sys.argv) < 4:
             print(json.dumps({
@@ -388,10 +466,25 @@ if __name__ == "__main__":
         if len(sys.argv) >= 5:
             is_teacher = sys.argv[4].lower() == 'true'
         submit_follow_up(question_id, content, is_teacher)
+
+    elif operation == "delete_follow_up":
+        if len(sys.argv) != 4:
+            print(json.dumps({
+                'success': False,
+                'message': "参数不足"
+            }))
+            sys.exit(1)
+        delete_follow_up(sys.argv[2], sys.argv[3])
     
-    
-    
-    
+    elif operation == "delete_answer":
+        if len(sys.argv) != 3:
+            print(json.dumps({
+                'success': False,
+                'message': "参数不足"
+            }))
+            sys.exit(1)
+        delete_answer(sys.argv[2])
+
     else:
         print(json.dumps({
             'success': False,
