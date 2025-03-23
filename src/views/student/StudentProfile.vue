@@ -95,7 +95,7 @@ export default {
       this.isLoading = true
       
       try {
-        // 先尝试从服务器获取个人信息
+        // 始终从服务器获取个人信息
         const response = await fetch(`/api/profile/${userEmail}`)
         const data = await response.json()
         
@@ -106,7 +106,7 @@ export default {
           this.profile.major = data.profile.major || ''
           this.profile.name = data.profile.name || ''
           
-          // 同步到会话存储
+          // 更新会话存储
           sessionStorage.setItem('userProfile', JSON.stringify({
             studentId: this.profile.studentId,
             className: this.profile.className,
@@ -114,18 +114,18 @@ export default {
             name: this.profile.name
           }))
         } else {
-          // 服务器无数据，尝试从会话存储获取
-          const savedProfile = JSON.parse(sessionStorage.getItem('userProfile') || '{}')
-          
-          this.profile.studentId = savedProfile.studentId || ''
-          this.profile.className = savedProfile.className || ''
-          this.profile.major = savedProfile.major || ''
-          this.profile.name = savedProfile.name || ''
+          // 服务器无数据，清空表单
+          this.profile.studentId = ''
+          this.profile.className = ''
+          this.profile.major = ''
+          this.profile.name = ''
+          // 清除可能存在的旧缓存
+          sessionStorage.removeItem('userProfile')
         }
       } catch (error) {
         console.error('加载个人信息失败:', error)
         
-        // 从会话存储加载
+        // 仅在服务器请求失败时才尝试使用会话存储中的备份数据
         const savedProfile = JSON.parse(sessionStorage.getItem('userProfile') || '{}')
         this.profile.studentId = savedProfile.studentId || ''
         this.profile.className = savedProfile.className || ''

@@ -174,11 +174,13 @@ export default {
       
       const userRole = sessionStorage.getItem('userRole') || 'student';
       
-      // 清除 sessionStorage 中的用户信息
+      // 清除 sessionStorage 中的所有用户信息
       sessionStorage.removeItem('userEmail');
       sessionStorage.removeItem('username');
       sessionStorage.removeItem('userRole');
       sessionStorage.removeItem('userIdentifier');
+      // 确保清除个人信息缓存
+      sessionStorage.removeItem('userProfile');
       
       this.$router.push({
         path: '/logIn',

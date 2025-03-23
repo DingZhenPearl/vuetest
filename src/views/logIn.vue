@@ -195,7 +195,10 @@
 
       // 登录成功后的处理
       handleLoginSuccess() {
-        // 使用 sessionStorage 替代 localStorage
+        // 先清除可能存在的旧数据
+        sessionStorage.clear();
+        
+        // 使用 sessionStorage 保存新用户信息
         sessionStorage.setItem('userRole', this.role);
         sessionStorage.setItem('username', this.username);
         sessionStorage.setItem('userEmail', this.username);
