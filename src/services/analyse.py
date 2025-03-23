@@ -36,7 +36,7 @@ def analyze_data(data):
 conn = mysql.connector.connect(
     host='localhost',       
     user='root',            
-    password='sushiding',
+    password='mwYgR7#*X2',
     database='education_platform'  # 更改为统一数据库    
 )
 cursor = conn.cursor()

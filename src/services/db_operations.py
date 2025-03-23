@@ -9,7 +9,7 @@ import os
 DB_CONFIG = {
     'host': 'localhost',
     'user': 'root',
-    'password': 'sushiding',
+    'password': 'mwYgR7#*X2',
     'database': 'education_platform'  # 更改为统一数据库
 }
 

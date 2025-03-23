@@ -10,7 +10,7 @@ from datetime import datetime
 DB_CONFIG = {
     'host': 'localhost',
     'user': 'root',
-    'password': 'sushiding',
+    'password': 'mwYgR7#*X2',
     'database': 'education_platform'
 }
 
