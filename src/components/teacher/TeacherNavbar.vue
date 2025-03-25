@@ -44,10 +44,7 @@
       <div class="menu-section">
         <div class="section-title" v-if="!isCollapse">教学管理</div>
         
-        <el-menu-item index="/teacher/class" class="menu-item">
-          <i class="el-icon-s-grid"></i>
-          <template #title>班级管理</template>
-        </el-menu-item>
+
         
         <el-menu-item index="/teacher/grades" class="menu-item">
           <i class="el-icon-s-data"></i>

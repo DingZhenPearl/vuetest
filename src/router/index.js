@@ -34,12 +34,6 @@ const routes = [
   },
   /* 暂时注释掉尚未创建的教师页面
   {
-    path: '/teacher/class',
-    name: 'teacherClass',
-    component: () => import('../views/teacher/TeacherClass.vue'),
-    meta: { requiresAuth: true, role: 'teacher' }
-  },
-  {
     path: '/teacher/schedule',
     name: 'teacherSchedule',
     component: () => import('../views/teacher/TeacherSchedule.vue'),

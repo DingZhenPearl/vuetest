@@ -2,7 +2,7 @@
   <div class="login-container">
     <div class="title-container">
       <img src="@/assets/logo.png" alt="logo" class="logo">
-      <h1 class="system-title">教育管理系统</h1>
+      <h1 class="system-title">智能编程互动大师</h1>
     </div>
     <div class="login-form">
       <h2>{{ showRegisterForm ? '用户注册' : '用户登录' }}</h2>
