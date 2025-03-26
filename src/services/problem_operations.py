@@ -82,21 +82,30 @@ def submit_problem(email, title, difficulty, content, input_example, output_exam
         conn.close()
 
 def get_teacher_problems(email):
-    """获取特定教师的题目列表"""
+    """获取题目列表(包括其他教师共享的题目)"""
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
     
     try:
         cursor.execute("""
-            SELECT id, title, difficulty, content, input_example, output_example, created_at, updated_at
-            FROM edu_problems
-            WHERE teacher_email = %s
-            ORDER BY created_at DESC
+            SELECT 
+                p.id,
+                p.title,
+                p.difficulty,
+                p.content,
+                p.input_example,
+                p.output_example,
+                p.created_at,
+                p.updated_at,
+                p.teacher_email,
+                CASE WHEN p.teacher_email = %s THEN 1 ELSE 0 END as is_owner
+            FROM edu_problems p
+            ORDER BY p.created_at DESC
         """, (email,))
         
         problems = cursor.fetchall()
         
-        # 转换时间戳为字符串，以便JSON序列化
+        # 转换时间戳为字符串
         for p in problems:
             p['created_at'] = p['created_at'].strftime('%Y-%m-%d %H:%M:%S')
             p['updated_at'] = p['updated_at'].strftime('%Y-%m-%d %H:%M:%S')

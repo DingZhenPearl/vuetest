@@ -90,12 +90,16 @@
               </el-tag>
             </template>
           </el-table-column>
+          <el-table-column prop="teacher_email" label="出题教师" width="180"></el-table-column>
           <el-table-column prop="created_at" label="创建时间" width="150"></el-table-column>
           <el-table-column label="操作" width="340" fixed="right">
             <template #default="scope">
               <div class="operation-buttons">
-                <el-button size="mini" @click="editProblem(scope.row)" type="primary">编辑</el-button>
-                <el-button size="mini" @click="deleteProblem(scope.row.id)" type="danger">删除</el-button>
+                <!-- 仅题目所有者可以编辑和删除 -->
+                <template v-if="scope.row.is_owner">
+                  <el-button size="mini" @click="editProblem(scope.row)" type="primary">编辑</el-button>
+                  <el-button size="mini" @click="deleteProblem(scope.row.id)" type="danger">删除</el-button>
+                </template>
                 <el-button size="mini" @click="viewSubmissions(scope.row)" type="info">答题情况</el-button>
                 <el-button size="mini" @click="viewQuestions(scope.row)" type="info">相关问题</el-button>
               </div>
