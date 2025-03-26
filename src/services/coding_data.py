@@ -62,7 +62,7 @@ def create_tables():
                 is_solved BOOLEAN DEFAULT FALSE,
                 first_view_time TIMESTAMP,
                 solved_time TIMESTAMP,
-                time_spent_seconds INT DEFAULT 0,
+                time_spent_seconds INT DEFAULT 0,  # 修改字段名
                 UNIQUE KEY (student_id, problem_id)
             )
         """)
@@ -84,104 +84,93 @@ def create_tables():
 def submit_data(data_json_str):
     """处理提交的编程数据"""
     try:
-        # 解析JSON数据
+        print(f"收到数据: {data_json_str}", file=sys.stderr)
         data = json.loads(data_json_str)
         
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # 1. 插入提交记录
-        cursor.execute("""
-            INSERT INTO edu_coding_submissions (
-                student_class, student_id, problem_id, problem_title, 
-                code_content, submit_result, execution_errors, 
-                first_view_time, submission_time
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """, (
-            data.get('student_class', ''),
-            data['student_id'],
-            data['problem_id'],
-            data.get('problem_title', ''),
-            data['code_content'],
-            data['submit_result'],
-            data.get('execution_errors'),
-            data.get('first_view_time'),
-            data.get('submission_time', datetime.now().isoformat())
-        ))
-        
-        # 2. 更新解题统计
-        # 查询是否已有此学生的此题统计
-        cursor.execute("""
-            SELECT * FROM edu_problem_solving_stats 
-            WHERE student_id = %s AND problem_id = %s
-        """, (data['student_id'], data['problem_id']))
-        
-        stats_record = cursor.fetchone()
-        
-        if not stats_record:
-            # 创建新记录，确保first_view_time正确插入
-            cursor.execute("""
+        try:
+            # 1. 插入提交记录到edu_coding_submissions
+            submissions_sql = """
+                INSERT INTO edu_coding_submissions (
+                    student_class, student_id, problem_id, problem_title,
+                    code_content, submit_result, execution_errors,
+                    first_view_time, submission_time
+                ) VALUES (
+                    %(student_class)s, %(student_id)s, %(problem_id)s,
+                    %(problem_title)s, %(code_content)s, %(submit_result)s,
+                    %(execution_errors)s, STR_TO_DATE(%(first_view_time)s, '%Y-%m-%d %H:%i:%s'),
+                    STR_TO_DATE(%(submission_time)s, '%Y-%m-%d %H:%i:%s')
+                )
+            """
+            cursor.execute(submissions_sql, data)
+            submission_id = cursor.lastrowid
+            
+            # 2. 更新或插入解题统计到edu_problem_solving_stats
+            stats_sql = """
                 INSERT INTO edu_problem_solving_stats (
                     student_id, problem_id, total_attempts, 
-                    is_solved, first_view_time
-                ) VALUES (%s, %s, %s, %s, %s)
-            """, (
-                data['student_id'],
-                data['problem_id'],
-                1,  # 首次尝试
-                data['submit_result'] == 'success',
-                data.get('first_view_time')  # 确保此处使用提交的first_view_time
-            ))
+                    is_solved, first_view_time, time_spent_seconds
+                ) VALUES (
+                    %(student_id)s, %(problem_id)s, 1,
+                    %(is_solved)s, STR_TO_DATE(%(first_view_time)s, '%Y-%m-%d %H:%i:%s'),
+                    %(coding_time)s
+                )
+                ON DUPLICATE KEY UPDATE
+                    total_attempts = total_attempts + 1,
+                    is_solved = CASE
+                        WHEN is_solved = FALSE AND %(is_solved)s = TRUE
+                        THEN TRUE
+                        ELSE is_solved
+                    END,
+                    attempts_until_success = CASE
+                        WHEN is_solved = FALSE AND %(is_solved)s = TRUE
+                        THEN total_attempts + 1
+                        ELSE attempts_until_success
+                    END,
+                    solved_time = CASE
+                        WHEN is_solved = FALSE AND %(is_solved)s = TRUE
+                        THEN STR_TO_DATE(%(submission_time)s, '%Y-%m-%d %H:%i:%s')
+                        ELSE solved_time
+                    END,
+                    time_spent_seconds = time_spent_seconds + %(coding_time)s
+            """
             
-            # 如果一次就成功，记录解决时间
-            if data['submit_result'] == 'success':
-                cursor.execute("""
-                    UPDATE edu_problem_solving_stats
-                    SET solved_time = %s,
-                        attempts_until_success = 1,
-                        time_spent_seconds = TIMESTAMPDIFF(SECOND, first_view_time, %s)
-                    WHERE student_id = %s AND problem_id = %s AND first_view_time IS NOT NULL
-                """, (
-                    data.get('submission_time'),
-                    data.get('submission_time'),
-                    data['student_id'],
-                    data['problem_id']
-                ))
-        else:
-            # 更新现有记录
-            cursor.execute("""
-                UPDATE edu_problem_solving_stats
-                SET total_attempts = total_attempts + 1,
-                    first_view_time = COALESCE(first_view_time, %s)
-                WHERE student_id = %s AND problem_id = %s
-            """, (data.get('first_view_time'), data['student_id'], data['problem_id']))
+            stats_data = {
+                'student_id': data['student_id'],
+                'problem_id': data['problem_id'],
+                'is_solved': data['submit_result'] == 'success',
+                'first_view_time': data['first_view_time'],
+                'submission_time': data['submission_time'],
+                'coding_time': int(data.get('coding_time', 0))
+            }
             
-            # 如果之前未解决，但现在成功了
-            if not stats_record[5] and data['submit_result'] == 'success':
-                cursor.execute("""
-                    UPDATE edu_problem_solving_stats
-                    SET is_solved = TRUE,
-                        solved_time = %s,
-                        attempts_until_success = total_attempts,
-                        time_spent_seconds = TIMESTAMPDIFF(SECOND, first_view_time, %s)
-                    WHERE student_id = %s AND problem_id = %s AND first_view_time IS NOT NULL
-                """, (
-                    data.get('submission_time'),
-                    data.get('submission_time'),
-                    data['student_id'],
-                    data['problem_id']
-                ))
-        
-        conn.commit()
-        print(json.dumps({
-            'success': True,
-            'message': "编程数据提交成功"
-        }))
+            cursor.execute(stats_sql, stats_data)
+            conn.commit()
+            
+            print(json.dumps({
+                'success': True,
+                'message': "编程数据提交成功",
+                'submission_id': submission_id
+            }))
+            
+        except mysql.connector.Error as e:
+            conn.rollback()
+            raise e
+            
     except Exception as e:
+        error_msg = f"处理数据失败: {str(e)}"
+        print(f"错误: {error_msg}", file=sys.stderr)
         print(json.dumps({
             'success': False,
-            'message': f"处理数据失败: {str(e)}"
+            'message': error_msg
         }))
+    finally:
+        if 'cursor' in locals():
+            cursor.close()
+        if 'conn' in locals():
+            conn.close()
 
 def get_student_stats(student_id):
     """获取学生编程统计数据"""

@@ -13,38 +13,49 @@ const { compileAndRunCpp, validateCppCode } = require('../services/cppRuntime');
  */
 router.post('/submit', async (req, res) => {
   try {
+    console.log('收到编程数据提交请求:', JSON.stringify(req.body, null, 2));
+
     const {
-      studentClass,
-      studentId,
-      problemId,
-      problemTitle,
-      codeContent,
-      submitResult,
-      executionErrors = null,
-      firstViewTime,
-      submissionTime
+      student_class,
+      student_id,
+      problem_id,
+      problem_title,
+      code_content,
+      submit_result,
+      execution_errors,
+      first_view_time,
+      submission_time,
+      coding_time
     } = req.body;
 
     // 数据验证
-    if (!studentId || !problemId || !codeContent) {
+    if (!student_id || !problem_id || !code_content) {
+      console.error('缺少必要参数:', { student_id, problem_id, code_content });
       return res.status(400).json({
         success: false,
         message: '缺少必要参数'
       });
     }
 
+    // 确保所有必要字段都存在
+    const submissionData = {
+      student_class: student_class || '',
+      student_id,
+      problem_id,
+      problem_title: problem_title || '',
+      code_content,
+      submit_result,
+      execution_errors,
+      first_view_time: first_view_time || null,
+      submission_time: submission_time || new Date().toISOString(),
+      coding_time: coding_time || 0
+    };
+
+    console.log('处理后的提交数据:', submissionData);
+
     // 调用服务处理数据
-    const result = await codingService.submitCodingData({
-      student_class: studentClass,
-      student_id: studentId,
-      problem_id: problemId,
-      problem_title: problemTitle,
-      code_content: codeContent,
-      submit_result: submitResult ? 'success' : 'failed',
-      execution_errors: executionErrors,
-      first_view_time: firstViewTime,
-      submission_time: submissionTime
-    });
+    const result = await codingService.submitCodingData(submissionData);
+    console.log('数据处理结果:', result);
 
     res.json(result);
   } catch (error) {
