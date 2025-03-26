@@ -82,21 +82,23 @@
         
         <!-- 题目表格 -->
         <el-table :data="filteredProblems" style="width: 100%" v-loading="loading">
-          <el-table-column prop="title" label="题目名称"></el-table-column>
-          <el-table-column prop="difficulty" label="难度">
+          <el-table-column prop="title" label="题目名称" min-width="180"></el-table-column>
+          <el-table-column prop="difficulty" label="难度" width="80">
             <template #default="scope">
               <el-tag :type="getDifficultyTag(scope.row.difficulty)">
                 {{ getDifficultyText(scope.row.difficulty) }}
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="created_at" label="创建时间" width="180"></el-table-column>
-          <el-table-column label="操作" width="280">
+          <el-table-column prop="created_at" label="创建时间" width="150"></el-table-column>
+          <el-table-column label="操作" width="340" fixed="right">
             <template #default="scope">
-              <el-button size="mini" @click="editProblem(scope.row)" type="primary">编辑</el-button>
-              <el-button size="mini" @click="deleteProblem(scope.row.id)" type="danger">删除</el-button>
-              <el-button size="mini" @click="viewSubmissions(scope.row)" type="info">答题情况</el-button>
-              <el-button size="mini" @click="viewQuestions(scope.row)" type="info">相关问题</el-button>
+              <div class="operation-buttons">
+                <el-button size="mini" @click="editProblem(scope.row)" type="primary">编辑</el-button>
+                <el-button size="mini" @click="deleteProblem(scope.row.id)" type="danger">删除</el-button>
+                <el-button size="mini" @click="viewSubmissions(scope.row)" type="info">答题情况</el-button>
+                <el-button size="mini" @click="viewQuestions(scope.row)" type="info">相关问题</el-button>
+              </div>
             </template>
           </el-table-column>
         </el-table>
@@ -508,6 +510,19 @@ export default {
   display: flex;
   margin-bottom: 15px;
   align-items: center;
+}
+
+.operation-buttons {
+  display: flex;
+  gap: 8px;  /* 按钮之间的间距 */
+  justify-content: flex-start;
+  flex-wrap: nowrap;
+  padding: 0 4px;
+}
+
+.operation-buttons .el-button {
+  margin-left: 0;  /* 覆盖element-ui的默认间距 */
+  margin-right: 0;
 }
 
 @media (max-width: 768px) {
