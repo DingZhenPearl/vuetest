@@ -18,6 +18,7 @@ const pythonRoutes = require('./routes/python');
 const profileRoutes = require('./routes/profile'); 
 const problemsRoutes = require('./routes/problems'); // 确保此行存在
 const codingRoutes = require('./routes/coding'); // 添加编程路由
+const teachingRoutes = require('./routes/teaching'); // 新增教学分析路由
 
 // 初始化Express应用
 const app = express();
@@ -38,6 +39,7 @@ app.use('/api/python', pythonRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/problems', problemsRoutes); // 确保此行存在
 app.use('/api/coding', codingRoutes); // 添加编程路由
+app.use('/api/teaching', teachingRoutes); // 注册教学分析路由
 
 // 基本路由 - 首页
 app.get('/', (req, res) => {
