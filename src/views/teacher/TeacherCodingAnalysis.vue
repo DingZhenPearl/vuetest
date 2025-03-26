@@ -16,11 +16,29 @@
       <div v-if="classStatsError" class="error">{{ classStatsError }}</div>
       <div v-if="classStats">
         <h3>班级概览 ({{ selectedClass }})</h3>
-        <pre>{{ classStats.class_stats }}</pre>
+        <el-descriptions :column="3" border>
+          <el-descriptions-item label="总学生数">{{ classStats.class_stats.total_students }}</el-descriptions-item>
+          <el-descriptions-item label="总提交次数">{{ classStats.class_stats.total_submissions }}</el-descriptions-item>
+          <el-descriptions-item label="成功率">{{ classStats.class_stats.success_rate }}%</el-descriptions-item>
+        </el-descriptions>
+
         <h3>题目完成情况</h3>
-        <pre>{{ classStats.problem_stats }}</pre>
+        <el-table :data="classStats.problem_stats" stripe>
+          <el-table-column prop="problem_title" label="题目" />
+          <el-table-column prop="students_attempted" label="尝试人数" />
+          <el-table-column prop="success_rate" label="通过率">
+            <template #default="scope">{{ scope.row.success_rate }}%</template>
+          </el-table-column>
+        </el-table>
+
         <h3>学生排名</h3>
-        <pre>{{ classStats.student_rankings }}</pre>
+        <el-table :data="classStats.student_rankings" stripe>
+          <el-table-column prop="student_id" label="学生ID" />
+          <el-table-column prop="solved_problems" label="已解决题目" />
+          <el-table-column prop="success_rate" label="成功率">
+            <template #default="scope">{{ scope.row.success_rate }}%</template>
+          </el-table-column>
+        </el-table>
       </div>
     </div>
 
@@ -55,13 +73,13 @@
       <!-- 每日提交趋势图 -->
       <div class="chart-container">
         <h3>每日提交趋势</h3>
-        <v-chart :option="dailyTrendsOption" autoresize />
+        <div ref="dailyTrendsChart" style="width:100%; height:300px;"></div>
       </div>
       
       <!-- 难度分布 -->
       <div class="chart-container">
         <h3>题目难度分布</h3>
-        <v-chart :option="difficultyOption" autoresize />
+        <div ref="difficultyChart" style="width:100%; height:300px;"></div>
       </div>
       
       <!-- 错误模式分析 -->
@@ -78,7 +96,7 @@
       <!-- 学习进度分布 -->
       <div class="chart-container">
         <h3>学习进度分布</h3>
-        <v-chart :option="progressOption" autoresize />
+        <div ref="progressChart" style="width:100%; height:300px;"></div>
       </div>
       
       <!-- 学习效率分析 -->
@@ -111,28 +129,34 @@
 </template>
 
 <script>
-import { use } from 'echarts/core';
-import { CanvasRenderer } from 'echarts/renderers';
-import { LineChart, BarChart, PieChart } from 'echarts/charts';
-import { GridComponent, TooltipComponent, LegendComponent } from 'echarts/components';
-import VChart from 'echarts';
-import axios from 'axios';
-
-use([
-  CanvasRenderer,
-  LineChart,
-  BarChart,
-  PieChart,
-  GridComponent,
+// 修改导入，使用echarts
+import * as echarts from 'echarts/core';
+import { BarChart, LineChart } from 'echarts/charts';
+import {
+  TitleComponent,
   TooltipComponent,
-  LegendComponent
+  GridComponent,
+  LegendComponent,
+  DataZoomComponent
+} from 'echarts/components';
+import { CanvasRenderer } from 'echarts/renderers';
+
+// 注册必需的组件
+echarts.use([
+  TitleComponent,
+  TooltipComponent,
+  GridComponent,
+  LegendComponent,
+  DataZoomComponent,
+  BarChart,
+  LineChart,
+  CanvasRenderer
 ]);
+
+import axios from 'axios';
 
 export default {
   name: 'TeacherCodingAnalysis',
-  components: {
-    VChart
-  },
   data() {
     return {
       selectedClass: '',
@@ -147,42 +171,32 @@ export default {
       problemList: [],
       learningPatterns: null,
       loadingPatterns: false,
-      patternsError: ''
+      patternsError: '',
+      dailyTrendsChart: null,
+      difficultyChart: null,
+      progressChart: null
     };
   },
   computed: {
-    dailyTrendsOption() {
-      if (!this.learningPatterns?.daily_trends) return {};
-      const data = this.learningPatterns.daily_trends;
-      
-      return {
-        tooltip: { trigger: 'axis' },
-        legend: { data: ['提交数', '成功提交', '活跃学生'] },
-        xAxis: {
-          type: 'category',
-          data: data.map(d => d.date)
-        },
-        yAxis: { type: 'value' },
-        series: [
-          {
-            name: '提交数',
-            type: 'line',
-            data: data.map(d => d.total_submissions)
-          },
-          {
-            name: '成功提交',
-            type: 'line',
-            data: data.map(d => d.successful_submissions)
-          },
-          {
-            name: '活跃学生',
-            type: 'line',
-            data: data.map(d => d.active_students)
-          }
-        ]
-      };
+    errorPatterns() {
+      return this.learningPatterns?.error_patterns || [];
     },
-    // ...其他图表配置
+    efficiencyAnalysis() {
+      return this.learningPatterns?.efficiency_analysis || [];
+    }
+  },
+  watch: {
+    learningPatterns: {
+      handler(newVal) {
+        if (newVal) {
+          this.$nextTick(() => {
+            this.initCharts();
+            this.updateCharts();
+          });
+        }
+      },
+      deep: true
+    }
   },
   methods: {
     async fetchClassStats() {
@@ -192,14 +206,16 @@ export default {
       this.classStats = null;
       try {
         const response = await axios.get(`/api/coding/class/${this.selectedClass}`);
+        console.log('班级统计数据响应:', response.data); // 添加调试日志
         if (response.data && response.data.success) {
           this.classStats = response.data.data;
         } else {
-          this.classStatsError = response.data.message || '获取班级数据失败';
+          throw new Error(response.data.message || '获取班级数据失败');
         }
       } catch (error) {
-        console.error('Error fetching class stats:', error);
-        this.classStatsError = `获取班级数据时出错: ${error.message}`;
+        console.error('获取班级统计失败:', error);
+        this.$message.error(`获取班级数据失败: ${error.message}`);
+        this.classStatsError = error.message;
       } finally {
         this.loadingClassStats = false;
       }
@@ -241,25 +257,50 @@ export default {
     },
     async fetchClassList() {
       try {
-        const response = await axios.get('/api/teaching/class-list');
-        if (response.data.success) {
-          this.classList = response.data.classes;
+        this.$message.info('正在加载班级列表...');
+        const userEmail = sessionStorage.getItem('userEmail');
+        const response = await axios.get('/api/teaching/class-list', {
+          params: { teacher_email: userEmail }
+        });
+        
+        if (response.data && response.data.success) {
+          this.classList = response.data.classes || [];
+          // 如果列表非空，自动选择第一个班级
+          if (this.classList.length > 0) {
+            this.selectedClass = this.classList[0];
+            this.fetchClassStats();
+          }
+        } else {
+          throw new Error(response.data.message || '获取班级列表失败');
         }
       } catch (error) {
-        console.error('获取班级列表失败:', error);
+        console.error('获取班级列表错误:', error);
+        this.$message.error('获取班级列表失败: ' + error.message);
       }
     },
+    
     async fetchProblemList() {
       try {
-        const response = await axios.get('/api/problems/all');
-        if (response.data.success) {
+        this.$message.info('正在加载题目列表...');
+        const userEmail = sessionStorage.getItem('userEmail');
+        const response = await axios.get(`/api/problems/teacher/${userEmail}`);
+        
+        if (response.data && response.data.success && Array.isArray(response.data.problems)) {
           this.problemList = response.data.problems.map(p => ({
-            id: p.id,
-            title: p.title
+            id: p.id.toString(),
+            title: p.title || '未命名题目'
           }));
+          // 如果列表非空，自动选择第一个题目
+          if (this.problemList.length > 0) {
+            this.selectedProblem = this.problemList[0].id;
+            this.fetchProblemStats();
+          }
+        } else {
+          throw new Error(response.data.message || '获取题目列表失败');
         }
       } catch (error) {
-        console.error('获取题目列表失败:', error);
+        console.error('获取题目列表错误:', error);
+        this.$message.error('获取题目列表失败: ' + error.message);
       }
     },
     formatTime(seconds) {
@@ -277,12 +318,221 @@ export default {
       if (percentage > 80) return '#67C23A';
       if (percentage > 60) return '#E6A23C';
       return '#F56C6C';
+    },
+    initCharts() {
+      // 初始化图表实例
+      if (!this.dailyTrendsChart) {
+        this.dailyTrendsChart = echarts.init(this.$refs.dailyTrendsChart);
+      }
+      if (!this.difficultyChart) {
+        this.difficultyChart = echarts.init(this.$refs.difficultyChart);
+      }
+      if (!this.progressChart) {
+        this.progressChart = echarts.init(this.$refs.progressChart);
+      }
+    },
+    
+    updateCharts() {
+      // 更新每日趋势图表
+      if (this.learningPatterns?.daily_trends?.length) {
+        this.dailyTrendsChart.setOption({
+          tooltip: {
+            trigger: 'axis',
+            axisPointer: {
+              type: 'cross',
+              label: {
+                backgroundColor: '#6a7985'
+              }
+            }
+          },
+          legend: {
+            data: ['提交数', '成功提交', '活跃学生'],
+            bottom: 10
+          },
+          grid: {
+            left: '3%',
+            right: '4%',
+            bottom: '15%',
+            containLabel: true
+          },
+          xAxis: {
+            type: 'category',
+            boundaryGap: false,
+            data: this.learningPatterns.daily_trends.map(d => d.date.split(' ')[0]),
+            axisLabel: {
+              rotate: 45
+            }
+          },
+          yAxis: {
+            type: 'value'
+          },
+          series: [
+            {
+              name: '提交数',
+              type: 'line',
+              areaStyle: {
+                opacity: 0.1
+              },
+              data: this.learningPatterns.daily_trends.map(d => d.total_submissions)
+            },
+            {
+              name: '成功提交',
+              type: 'line',
+              areaStyle: {
+                opacity: 0.1
+              },
+              data: this.learningPatterns.daily_trends.map(d => d.successful_submissions)
+            },
+            {
+              name: '活跃学生',
+              type: 'line',
+              areaStyle: {
+                opacity: 0.1
+              },
+              data: this.learningPatterns.daily_trends.map(d => d.active_students)
+            }
+          ]
+        });
+      }
+
+      // 更新难度分布图表
+      if (this.learningPatterns?.problem_difficulty?.length) {
+        this.difficultyChart.setOption({
+          tooltip: {
+            trigger: 'axis',
+            axisPointer: {
+              type: 'shadow'
+            }
+          },
+          legend: {
+            data: ['提交次数', '成功率', '平均解题时间'],
+            bottom: 10
+          },
+          grid: {
+            left: '3%',
+            right: '4%',
+            bottom: '15%',
+            containLabel: true
+          },
+          xAxis: {
+            type: 'category',
+            data: this.learningPatterns.problem_difficulty.map(d => d.problem_title),
+            axisLabel: {
+              rotate: 45,
+              interval: 0
+            }
+          },
+          yAxis: [
+            {
+              type: 'value',
+              name: '次数'
+            },
+            {
+              type: 'value',
+              name: '比率/时间',
+              max: 100
+            }
+          ],
+          series: [
+            {
+              name: '提交次数',
+              type: 'bar',
+              data: this.learningPatterns.problem_difficulty.map(d => d.attempt_count)
+            },
+            {
+              name: '成功率',
+              type: 'line',
+              yAxisIndex: 1,
+              data: this.learningPatterns.problem_difficulty.map(d => parseFloat(d.success_rate))
+            },
+            {
+              name: '平均解题时间',
+              type: 'line',
+              yAxisIndex: 1,
+              data: this.learningPatterns.problem_difficulty.map(d => parseFloat(d.avg_solution_time))
+            }
+          ]
+        });
+      }
+
+      // 更新学习进度分布图表
+      if (this.learningPatterns?.progress_distribution?.length) {
+        this.progressChart.setOption({
+          tooltip: {
+            trigger: 'axis',
+            axisPointer: {
+              type: 'shadow'
+            }
+          },
+          legend: {
+            data: ['尝试题数', '已解决', '平均尝试次数'],
+            bottom: 10
+          },
+          grid: {
+            left: '3%',
+            right: '4%',
+            bottom: '15%',
+            containLabel: true
+          },
+          xAxis: {
+            type: 'category',
+            data: this.learningPatterns.progress_distribution.map(d => d.student_id),
+            axisLabel: {
+              rotate: 45,
+              interval: 0
+            }
+          },
+          yAxis: [
+            {
+              type: 'value',
+              name: '题目数'
+            },
+            {
+              type: 'value',
+              name: '尝试次数'
+            }
+          ],
+          series: [
+            {
+              name: '尝试题数',
+              type: 'bar',
+              data: this.learningPatterns.progress_distribution.map(d => d.problems_attempted)
+            },
+            {
+              name: '已解决',
+              type: 'bar',
+              data: this.learningPatterns.progress_distribution.map(d => d.problems_solved)
+            },
+            {
+              name: '平均尝试次数',
+              type: 'line',
+              yAxisIndex: 1,
+              data: this.learningPatterns.progress_distribution.map(d => parseFloat(d.avg_attempts))
+            }
+          ]
+        });
+      }
     }
   },
-  watch: {
-    selectedClass() {
-      this.fetchLearningPatterns();
-    }
+  mounted() {
+    // 页面加载时初始化图表
+    this.initCharts();
+    
+    // 添加窗口大小改变的监听
+    window.addEventListener('resize', () => {
+      this.dailyTrendsChart?.resize();
+      this.difficultyChart?.resize();
+      this.progressChart?.resize();
+    });
+  },
+  beforeUnmount() {
+    // 组件销毁时释放图表实例
+    this.dailyTrendsChart?.dispose();
+    this.difficultyChart?.dispose();
+    this.progressChart?.dispose();
+    
+    // 移除窗口大小改变的监听
+    window.removeEventListener('resize', this.handleResize);
   },
   async created() {
     // 页面加载时获取班级和题目列表

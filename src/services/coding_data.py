@@ -4,7 +4,17 @@
 import sys
 import json
 import mysql.connector
-from datetime import datetime
+from datetime import datetime, date
+from decimal import Decimal
+
+# 添加自定义JSON编码器
+class CustomJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, (datetime, date)):
+            return obj.strftime('%Y-%m-%d %H:%M:%S')
+        if isinstance(obj, Decimal):
+            return float(obj)
+        return super().default(obj)
 
 # 数据库连接配置
 DB_CONFIG = {
@@ -251,24 +261,14 @@ def get_class_stats(class_name):
     cursor = conn.cursor(dictionary=True)
     
     try:
-        # 获取班级内所有学生ID
-        cursor.execute("""
-            SELECT DISTINCT student_id
-            FROM edu_coding_submissions
-            WHERE student_class = %s
-        """, (class_name,))
-        
-        students = cursor.fetchall()
-        student_ids = [s['student_id'] for s in students]
-        
         # 获取班级总体统计
         cursor.execute("""
             SELECT 
                 COUNT(DISTINCT student_id) as total_students,
                 COUNT(DISTINCT problem_id) as total_problems,
-                SUM(CASE WHEN submit_result = 'success' THEN 1 ELSE 0 END) as total_successful_submissions,
                 COUNT(*) as total_submissions,
-                (SUM(CASE WHEN submit_result = 'success' THEN 1 ELSE 0 END) / COUNT(*)) * 100 as success_rate
+                SUM(CASE WHEN submit_result = 'success' THEN 1 ELSE 0 END) as successful_submissions,
+                ROUND(AVG(CASE WHEN submit_result = 'success' THEN 1 ELSE 0 END) * 100, 2) as success_rate
             FROM edu_coding_submissions
             WHERE student_class = %s
         """, (class_name,))
@@ -280,34 +280,32 @@ def get_class_stats(class_name):
             SELECT 
                 problem_id,
                 MAX(problem_title) as problem_title,
-                COUNT(DISTINCT CASE WHEN submit_result = 'success' THEN student_id END) as students_solved,
+                COUNT(*) as total_attempts,
                 COUNT(DISTINCT student_id) as students_attempted,
-                (COUNT(DISTINCT CASE WHEN submit_result = 'success' THEN student_id END) / COUNT(DISTINCT student_id)) * 100 as completion_rate
+                SUM(CASE WHEN submit_result = 'success' THEN 1 ELSE 0 END) as successful_attempts,
+                ROUND(AVG(CASE WHEN submit_result = 'success' THEN 1 ELSE 0 END) * 100, 2) as success_rate
             FROM edu_coding_submissions
             WHERE student_class = %s
             GROUP BY problem_id
+            ORDER BY problem_id
         """, (class_name,))
         
         problem_stats = cursor.fetchall()
         
         # 获取学生排名情况
-        student_rankings = []
-        for student_id in student_ids:
-            cursor.execute("""
-                SELECT 
-                    student_id,
-                    COUNT(DISTINCT CASE WHEN is_solved = TRUE THEN problem_id END) as problems_solved,
-                    AVG(attempts_until_success) as avg_attempts
-                FROM edu_problem_solving_stats
-                WHERE student_id = %s
-            """, (student_id,))
-            
-            student_stat = cursor.fetchone()
-            if student_stat:
-                student_rankings.append(student_stat)
+        cursor.execute("""
+            SELECT 
+                student_id,
+                COUNT(DISTINCT CASE WHEN submit_result = 'success' THEN problem_id END) as solved_problems,
+                COUNT(*) as total_submissions,
+                ROUND(AVG(CASE WHEN submit_result = 'success' THEN 1 ELSE 0 END) * 100, 2) as success_rate
+            FROM edu_coding_submissions
+            WHERE student_class = %s
+            GROUP BY student_id
+            ORDER BY solved_problems DESC, success_rate DESC
+        """, (class_name,))
         
-        # 按解决问题数量排序
-        student_rankings.sort(key=lambda x: x['problems_solved'], reverse=True)
+        student_rankings = cursor.fetchall()
         
         result = {
             'class_name': class_name,
@@ -319,7 +317,8 @@ def get_class_stats(class_name):
         print(json.dumps({
             'success': True,
             'data': result
-        }))
+        }, cls=CustomJSONEncoder))
+        
     except mysql.connector.Error as err:
         print(json.dumps({
             'success': False,
@@ -340,37 +339,39 @@ def get_problem_stats(problem_id):
             SELECT 
                 problem_id,
                 MAX(problem_title) as problem_title,
-                COUNT(DISTINCT student_id) as students_attempted,
-                COUNT(DISTINCT CASE WHEN submit_result = 'success' THEN student_id END) as students_solved,
+                COUNT(DISTINCT student_id) as total_students,
                 COUNT(*) as total_submissions,
-                SUM(CASE WHEN submit_result = 'success' THEN 1 ELSE 0 END) as successful_submissions
+                SUM(CASE WHEN submit_result = 'success' THEN 1 ELSE 0 END) as successful_submissions,
+                ROUND(AVG(CASE WHEN submit_result = 'success' THEN 1 ELSE 0 END) * 100, 2) as success_rate
             FROM edu_coding_submissions
             WHERE problem_id = %s
         """, (problem_id,))
         
-        basic_info = cursor.fetchone()
+        problem_info = cursor.fetchone()
         
-        # 获取各班级的提交统计
+        # 获取各班级的完成情况
         cursor.execute("""
             SELECT 
                 student_class,
                 COUNT(DISTINCT student_id) as students_attempted,
-                COUNT(DISTINCT CASE WHEN submit_result = 'success' THEN student_id END) as students_solved,
-                (COUNT(DISTINCT CASE WHEN submit_result = 'success' THEN student_id END) / COUNT(DISTINCT student_id)) * 100 as completion_rate
+                COUNT(*) as total_attempts,
+                SUM(CASE WHEN submit_result = 'success' THEN 1 ELSE 0 END) as successful_attempts,
+                ROUND(AVG(CASE WHEN submit_result = 'success' THEN 1 ELSE 0 END) * 100, 2) as success_rate
             FROM edu_coding_submissions
             WHERE problem_id = %s
             GROUP BY student_class
+            ORDER BY success_rate DESC
         """, (problem_id,))
         
         class_stats = cursor.fetchall()
         
-        # 获取常见错误类型
+        # 获取错误统计
         cursor.execute("""
             SELECT 
                 execution_errors,
                 COUNT(*) as count
             FROM edu_coding_submissions
-            WHERE problem_id = %s AND execution_errors IS NOT NULL
+            WHERE problem_id = %s AND submit_result = 'failed' AND execution_errors IS NOT NULL
             GROUP BY execution_errors
             ORDER BY count DESC
             LIMIT 10
@@ -381,18 +382,19 @@ def get_problem_stats(problem_id):
         # 获取解题时间分布
         cursor.execute("""
             SELECT 
-                time_spent_seconds,
+                TIMESTAMPDIFF(MINUTE, first_view_time, submission_time) as solving_time,
                 COUNT(*) as count
-            FROM edu_problem_solving_stats
-            WHERE problem_id = %s AND is_solved = TRUE
-            GROUP BY time_spent_seconds
-            ORDER BY time_spent_seconds ASC
+            FROM edu_coding_submissions
+            WHERE problem_id = %s AND submit_result = 'success'
+            AND first_view_time IS NOT NULL
+            GROUP BY solving_time
+            ORDER BY solving_time
         """, (problem_id,))
         
         solving_time_distribution = cursor.fetchall()
         
         result = {
-            'problem_info': basic_info,
+            'problem_info': problem_info,
             'class_stats': class_stats,
             'common_errors': common_errors,
             'solving_time_distribution': solving_time_distribution
@@ -401,7 +403,8 @@ def get_problem_stats(problem_id):
         print(json.dumps({
             'success': True,
             'data': result
-        }))
+        }, cls=CustomJSONEncoder))
+        
     except mysql.connector.Error as err:
         print(json.dumps({
             'success': False,

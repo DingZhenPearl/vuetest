@@ -1,10 +1,20 @@
 import sys
 import json
 import mysql.connector
-from datetime import datetime, timedelta
+from datetime import datetime, date
+from decimal import Decimal
 
 # 使用与其他服务相同的数据库配置
 from coding_data import DB_CONFIG
+
+# 添加自定义JSON编码器
+class CustomJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, (datetime, date)):
+            return obj.strftime('%Y-%m-%d %H:%M:%S')
+        if isinstance(obj, Decimal):
+            return float(obj)
+        return super().default(obj)
 
 def get_db_connection():
     """建立数据库连接"""
@@ -122,7 +132,7 @@ def analyze_learning_patterns(class_name=None):
         print(json.dumps({
             'success': True,
             'data': result
-        }))
+        }, cls=CustomJSONEncoder))  # 使用自定义编码器
         
     except mysql.connector.Error as err:
         print(json.dumps({
@@ -136,23 +146,33 @@ def analyze_learning_patterns(class_name=None):
 def get_class_list():
     """获取所有班级列表"""
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor()
     
     try:
+        # 添加 ORDER BY 以确保稳定的排序
         cursor.execute("""
-            SELECT DISTINCT student_class
-            FROM edu_coding_submissions
-            WHERE student_class IS NOT NULL AND student_class != ''
-            ORDER BY student_class
+            SELECT DISTINCT cs.student_class
+            FROM edu_coding_submissions cs
+            WHERE cs.student_class IS NOT NULL 
+            AND cs.student_class != ''
+            AND cs.student_class != 'null'
+            ORDER BY cs.student_class ASC
         """)
         
-        class_list = cursor.fetchall()
-        
+        rows = cursor.fetchall()
+        if not rows:
+            print(json.dumps({
+                'success': True,
+                'classes': [],
+                'message': '暂无班级数据'
+            }))
+            return
+            
         print(json.dumps({
             'success': True,
-            'classes': [c['student_class'] for c in class_list]
-        }))
-        
+            'classes': [row[0] for row in rows if row[0]],
+            'message': '获取班级列表成功'
+        }, cls=CustomJSONEncoder))
     except mysql.connector.Error as err:
         print(json.dumps({
             'success': False,

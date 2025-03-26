@@ -41,13 +41,28 @@ router.get('/teacher/:email', async (req, res) => {
  */
 router.get('/all', async (req, res) => {
   try {
+    console.log('正在获取题目列表...');
     const result = await executePythonScript('problem_operations.py', [
       'get_all_problems'
     ]);
+    
+    // 添加调试日志
+    console.log('Python脚本返回的题目列表结果:', result);
+    
+    // 确保result.problems是一个数组
+    if (result.success && !Array.isArray(result.problems)) {
+      console.warn('题目列表格式异常，尝试修复');
+      result.problems = result.problems ? [result.problems] : [];
+    }
+    
     res.json(result);
   } catch (error) {
     console.error('获取所有题目列表失败:', error);
-    res.status(500).json({ success: false, message: '服务器错误' });
+    res.status(500).json({
+      success: false,
+      message: '获取题目列表失败',
+      error: error.message
+    });
   }
 });
 

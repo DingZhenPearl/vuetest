@@ -22,14 +22,23 @@ router.get('/learning-patterns/:className?', async (req, res) => {
 
 router.get('/class-list', async (req, res) => {
     try {
+        console.log('正在获取班级列表...');
         const result = await executePythonScript('teaching_stats.py', ['get_class_list']);
+        console.log('班级列表结果:', result);
+        
+        // 确保返回一个数组
+        if (result.success && !result.classes) {
+            result.classes = [];
+        }
+        
         res.json(result);
     } catch (error) {
         console.error('获取班级列表失败:', error);
         res.status(500).json({
             success: false,
             message: '服务器错误',
-            error: error.message
+            error: error.message,
+            classes: [] // 确保即使失败也返回空数组
         });
     }
 });
