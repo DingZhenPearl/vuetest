@@ -98,8 +98,8 @@ def get_teacher_problems(email):
         
         # 转换时间戳为字符串，以便JSON序列化
         for p in problems:
-            p['created_at'] = p['created_at'].isoformat()
-            p['updated_at'] = p['updated_at'].isoformat()
+            p['created_at'] = p['created_at'].strftime('%Y-%m-%d %H:%M:%S')
+            p['updated_at'] = p['updated_at'].strftime('%Y-%m-%d %H:%M:%S')
         
         print(json.dumps({
             'success': True,
@@ -234,6 +234,48 @@ def get_problem_detail(problem_id):
         cursor.close()
         conn.close()
 
+def get_problem_submissions_stats(problem_id):
+    """获取题目的答题情况统计"""
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    
+    try:
+        cursor.execute("""
+            SELECT 
+                s.student_id,
+                s.student_class,
+                MAX(s.submit_result) as best_result,
+                COUNT(*) as submission_count,
+                MIN(s.submission_time) as first_submission,
+                MAX(s.submission_time) as last_submission
+            FROM edu_coding_submissions s
+            WHERE s.problem_id = %s
+            GROUP BY s.student_id, s.student_class
+            ORDER BY s.student_class, s.student_id
+        """, (problem_id,))
+        
+        submissions = cursor.fetchall()
+        
+        # 转换时间戳为字符串
+        for sub in submissions:
+            if sub['first_submission']:
+                sub['first_submission'] = sub['first_submission'].strftime('%Y-%m-%d %H:%M:%S')
+            if sub['last_submission']:
+                sub['last_submission'] = sub['last_submission'].strftime('%Y-%m-%d %H:%M:%S')
+        
+        print(json.dumps({
+            'success': True,
+            'submissions': submissions
+        }))
+    except mysql.connector.Error as err:
+        print(json.dumps({
+            'success': False,
+            'message': f"获取答题情况失败: {str(err)}"
+        }))
+    finally:
+        cursor.close()
+        conn.close()
+
 if __name__ == "__main__":
     # 确保数据表存在
     create_tables()
@@ -296,6 +338,15 @@ if __name__ == "__main__":
             }))
             sys.exit(1)
         get_problem_detail(sys.argv[2])
+    
+    elif operation == "get_problem_submissions_stats":
+        if len(sys.argv) != 3:
+            print(json.dumps({
+                'success': False,
+                'message': "参数不足"
+            }))
+            sys.exit(1)
+        get_problem_submissions_stats(sys.argv[2])
     
     else:
         print(json.dumps({

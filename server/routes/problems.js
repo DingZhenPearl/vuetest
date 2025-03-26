@@ -141,6 +141,27 @@ router.delete('/:id', async (req, res) => {
 });
 
 /**
+ * 获取题目的答题情况
+ */
+router.get('/:id/submissions', async (req, res) => {
+  try {
+    const problemId = req.params.id;
+    const result = await executePythonScript('problem_operations.py', [
+      'get_problem_submissions_stats',
+      problemId
+    ]);
+    res.json(result);
+  } catch (error) {
+    console.error('获取答题情况失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '服务器错误',
+      error: error.message
+    });
+  }
+});
+
+/**
  * 验证C++代码
  */
 router.post('/validate-cpp', async (req, res) => {

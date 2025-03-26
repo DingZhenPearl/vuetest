@@ -95,6 +95,7 @@
             <template #default="scope">
               <el-button size="mini" @click="editProblem(scope.row)" type="primary">编辑</el-button>
               <el-button size="mini" @click="deleteProblem(scope.row.id)" type="danger">删除</el-button>
+              <el-button size="mini" @click="viewSubmissions(scope.row)" type="info">答题情况</el-button>
               <el-button size="mini" @click="viewQuestions(scope.row)" type="info">相关问题</el-button>
             </template>
           </el-table-column>
@@ -109,6 +110,27 @@
       :related-problem-id="currentProblemId"
       @question-submitted="handleQuestionSubmitted"
     />
+
+    <!-- 添加答题情况对话框 -->
+    <el-dialog
+      title="答题情况"
+      v-model="submissionsDialogVisible"
+      width="70%">
+      <el-table :data="submissionStats" v-loading="loadingStats">
+        <el-table-column prop="student_class" label="班级"></el-table-column>
+        <el-table-column prop="student_id" label="学号"></el-table-column>
+        <el-table-column prop="submission_count" label="提交次数"></el-table-column>
+        <el-table-column prop="best_result" label="最佳结果">
+          <template #default="scope">
+            <el-tag :type="scope.row.best_result === 'success' ? 'success' : 'danger'">
+              {{ scope.row.best_result === 'success' ? '通过' : '未通过' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="first_submission" label="首次提交时间"></el-table-column>
+        <el-table-column prop="last_submission" label="最近提交时间"></el-table-column>
+      </el-table>
+    </el-dialog>
   </div>
 </template>
 
@@ -153,7 +175,10 @@ export default {
       difficultyFilter: '',
       // 添加问题对话框相关数据
       questionDialogVisible: false,
-      currentProblemId: null
+      currentProblemId: null,
+      submissionsDialogVisible: false,
+      submissionStats: [],
+      loadingStats: false,
     }
   },
   mounted() {
@@ -182,23 +207,32 @@ export default {
         const email = sessionStorage.getItem('userEmail');
         if (!email) {
           this.$message.error('用户未登录，将使用测试数据');
-          // 使用测试数据
+          // 使用测试数据，修改时间格式
+          const now = new Date().toLocaleString('zh-CN', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+          }).replace(/\//g, '-');
+          
           this.problems = [
             {
               id: 1,
               title: '本地测试题目1',
               difficulty: 'easy',
               content: '这是一个本地测试题目',
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
+              created_at: now,
+              updated_at: now
             },
             {
               id: 2,
               title: '本地测试题目2',
               difficulty: 'medium',
               content: '这是第二个本地测试题目',
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
+              created_at: now,
+              updated_at: now
             }
           ];
           return;
@@ -421,7 +455,29 @@ export default {
       });
       
       // 可以根据需要添加额外的逻辑，例如更新问题列表等
-    }
+    },
+
+    // 查看答题情况
+    async viewSubmissions(problem) {
+      this.submissionsDialogVisible = true;
+      this.loadingStats = true;
+      
+      try {
+        const response = await fetch(`/api/problems/${problem.id}/submissions`);
+        const data = await response.json();
+        
+        if (data.success) {
+          this.submissionStats = data.submissions;
+        } else {
+          this.$message.error(data.message || '获取答题情况失败');
+        }
+      } catch (error) {
+        console.error('获取答题情况失败:', error);
+        this.$message.error('获取答题情况失败');
+      } finally {
+        this.loadingStats = false;
+      }
+    },
   }
 }
 </script>
