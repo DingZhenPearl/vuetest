@@ -30,7 +30,7 @@
           <table class="forum-table">
             <thead>
               <tr>
-                <th class="title-col">主题</th>
+                <th class="title-col">标题</th>
                 <th class="status-col">状态</th>
                 <th class="date-col">发布时间</th>
                 <th class="actions-col">操作</th>
@@ -42,8 +42,10 @@
                   <a href="#" @click.prevent="viewQuestionDetail(question)" class="question-link">
                     {{ question.title }}
                   </a>
-                  <div class="reply-count">
-                    {{ getReplyCount(question) }} 回复
+                  <div class="post-meta">
+                    <span v-if="question.posted_as_teacher" class="teacher-badge">教师身份发布</span>
+                    <span class="author">{{ question.email }}</span>
+                    <span class="reply-count">{{ getReplyCount(question) }} 回复</span>
                   </div>
                 </td>
                 <td class="status-col">
@@ -54,8 +56,12 @@
                 <td class="date-col">{{ formatDate(question.created_at) }}</td>
                 <td class="actions-col">
                   <div class="question-actions">
-                    <!-- 移除了编辑按钮，只保留删除功能 -->
-                    <button @click="deleteQuestion(question.id)" class="delete-btn">删除</button>
+                    <button 
+                      v-if="question.email === userEmail"
+                      @click="deleteQuestion(question.id)" 
+                      class="delete-btn">
+                      删除
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -91,7 +97,9 @@
             <div class="post-header">
               <h2 class="post-title">{{ currentQuestion.title }}</h2>
               <div class="post-meta">
-                <span class="author">我</span>
+                <!-- 修改作者显示逻辑 -->
+                <span v-if="currentQuestion.posted_as_teacher" class="teacher-badge">教师</span>
+                <span class="author">{{ currentQuestion.email }}</span>
                 <span class="post-time">{{ formatDate(currentQuestion.created_at) }}</span>
                 <span :class="['status-label', currentQuestion.status === 'pending' ? 'pending' : 'answered']">
                   {{ currentQuestion.status === 'pending' ? '未回复' : '已回复' }}
@@ -105,20 +113,7 @@
 
           <!-- 回复列表 -->
           <div class="replies">
-            <!-- 老师的回答作为第一条回复 -->
-            <div v-if="currentQuestion.answer" class="post reply">
-              <div class="post-header">
-                <div class="post-meta">
-                  <span class="author teacher">老师</span>
-                  <span class="post-time">{{ formatDate(currentQuestion.answered_at) }}</span>
-                </div>
-              </div>
-              <div class="post-content">
-                {{ currentQuestion.answer }}
-              </div>
-            </div>
-
-            <!-- 追问追答显示为普通的论坛回复 -->
+            <!-- 处理所有回复，包括主回答和追问追答 -->
             <template v-if="currentQuestion.follow_ups && currentQuestion.follow_ups.length > 0">
               <div 
                 v-for="(followUp, index) in getFollowUps(currentQuestion.follow_ups)" 
@@ -126,13 +121,18 @@
                 class="post reply">
                 <div class="post-header">
                   <div class="post-meta">
-                    <span :class="['author', followUp.user === 'teacher' ? 'teacher' : '']">
-                      {{ followUp.user === 'teacher' ? '老师' : '我' }}
-                    </span>
+                    <template v-if="followUp.user === 'teacher'">
+                      <span class="teacher-badge">教师</span>
+                      <span class="author teacher">{{ followUp.email }}</span>
+                    </template>
+                    <template v-else>
+                      <!-- 修改这里：显示回复者的实际邮箱，而不是问题发布者的邮箱 -->
+                      <span class="author">{{ followUp.email }}</span>
+                    </template>
                     <span class="post-time">{{ formatDate(followUp.time) }}</span>
-                    <!-- 修改条件，确保删除按钮显示出来 -->
+                    <!-- 删除按钮 -->
                     <button 
-                      v-if="followUp.user === 'student'" 
+                      v-if="followUp.user === 'student' && followUp.email === userEmail" 
                       @click="deleteFollowUp(currentQuestion.id, index)" 
                       class="delete-reply-btn">
                       <i class="fas fa-trash"></i> 删除
@@ -214,7 +214,7 @@ export default {
     async loadQuestions() {
       this.loading = true
       try {
-        const response = await fetch(`/api/questions/student/${this.userEmail}`) // 更新API路径
+        const response = await fetch(`/api/questions/all`) // Fetch all questions
         const data = await response.json()
         
         if (data.success && Array.isArray(data.questions)) {
@@ -316,7 +316,11 @@ export default {
         const response = await fetch('/api/questions/follow-up', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ questionId, content })
+          body: JSON.stringify({ 
+            questionId, 
+            content,
+            email: this.userEmail  // 添加学生邮箱
+          })
         })
         
         if (response.ok) {
@@ -576,7 +580,7 @@ h1, h2, h3 {
 }
 
 .title-col {
-  width: 45%;
+  width: 50%;
 }
 
 .status-col {
@@ -584,7 +588,7 @@ h1, h2, h3 {
 }
 
 .date-col {
-  width: 25%;
+  width: 20%;
 }
 
 .actions-col {
@@ -695,10 +699,10 @@ h1, h2, h3 {
 .post-meta {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: 12px;
   color: #666;
-  font-size: 14px;
-  width: 100%;
 }
 
 .author {
@@ -820,5 +824,14 @@ h1, h2, h3 {
 
 .delete-reply-btn:hover {
   background-color: rgba(244, 67, 54, 0.1);
+}
+
+.teacher-badge {
+  background-color: #4CAF50;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  margin-right: 8px;
 }
 </style>

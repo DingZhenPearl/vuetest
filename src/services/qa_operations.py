@@ -29,7 +29,7 @@ def create_tables():
     cursor = conn.cursor()
     
     try:
-        # 创建问题表
+        # 创建问题表 - 移除answered_by字段
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS edu_qa_questions (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -81,47 +81,11 @@ def submit_question(email, title, content):
         conn.close()
 
 def get_student_questions(email):
-    """获取特定学生的问题列表"""
+    """获取所有问题（论坛模式）"""
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
     
     try:
-        # 修改 get_student_questions 函数中的查询语句
-        cursor.execute("""
-            SELECT id, title, content, status, created_at, answer, answered_at, follow_ups
-            FROM edu_qa_questions
-            WHERE email = %s
-            ORDER BY created_at DESC
-        """, (email,))
-        
-        questions = cursor.fetchall()
-        
-        # 转换时间戳为字符串，以便JSON序列化
-        for q in questions:
-            q['created_at'] = q['created_at'].isoformat()
-            if q['answered_at']:
-                q['answered_at'] = q['answered_at'].isoformat()
-        
-        print(json.dumps({
-            'success': True,
-            'questions': questions
-        }))
-    except mysql.connector.Error as err:
-        print(json.dumps({
-            'success': False,
-            'message': f"获取问题列表失败: {str(err)}"
-        }))
-    finally:
-        cursor.close()
-        conn.close()
-
-def get_all_questions():
-    """获取所有问题（教师用）"""
-    conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
-    
-    try:
-        # 修改 get_all_questions 函数中的查询语句
         cursor.execute("""
             SELECT id, email, title, content, status, created_at, answer, answered_at, follow_ups
             FROM edu_qa_questions
@@ -149,19 +113,82 @@ def get_all_questions():
         cursor.close()
         conn.close()
 
-def submit_answer(question_id, answer):
+def get_all_questions():
+    """获取所有问题及用户身份信息"""
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    
+    try:
+        cursor.execute("""
+            SELECT 
+                q.*,
+                EXISTS (
+                    SELECT 1 
+                    FROM edu_users_teacher t 
+                    WHERE t.email = q.email AND q.email = q.email
+                ) as posted_as_teacher
+            FROM edu_qa_questions q
+            ORDER BY q.created_at DESC
+        """)
+        
+        questions = cursor.fetchall()
+        
+        # 转换时间戳为字符串
+        for q in questions:
+            q['created_at'] = q['created_at'].strftime('%Y-%m-%d %H:%M:%S')
+            if q['answered_at']:
+                q['answered_at'] = q['answered_at'].strftime('%Y-%m-%d %H:%M:%S')
+            
+            # 确保回答者邮箱字段存在
+            if 'answered_by' not in q:
+                q['answered_by'] = None
+        
+        print(json.dumps({
+            'success': True,
+            'questions': questions
+        }))
+    except mysql.connector.Error as err:
+        print(json.dumps({
+            'success': False,
+            'message': f"获取问题列表失败: {str(err)}"
+        }))
+    finally:
+        cursor.close()
+        conn.close()
+
+def submit_answer(question_id, answer, teacher_email):
     """提交问题的回答"""
     conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
+        # 在follow_ups中添加教师回答记录
+        cursor.execute("SELECT follow_ups FROM edu_qa_questions WHERE id = %s", (question_id,))
+        result = cursor.fetchone()
+        follow_ups = []
+        if result and result[0] is not None:
+            try:
+                follow_ups = json.loads(result[0])
+            except json.JSONDecodeError:
+                follow_ups = []
+                
+        # 添加教师回答
+        new_entry = {
+            "content": answer,
+            "user": "teacher",
+            "email": teacher_email,
+            "time": datetime.now().isoformat(),
+            "is_main_answer": True  # 标记为主要回答
+        }
+        follow_ups.append(new_entry)
+        
+        # 更新问题状态和follow_ups
         cursor.execute("""
             UPDATE edu_qa_questions
-            SET answer = %s,
-                status = 'answered',
-                answered_at = CURRENT_TIMESTAMP
+            SET status = 'answered',
+                follow_ups = %s
             WHERE id = %s
-        """, (answer, question_id))
+        """, (json.dumps(follow_ups), question_id))
         
         conn.commit()
         print(json.dumps({
@@ -295,7 +322,7 @@ def update_question(question_id, title, content):
         cursor.close()
         conn.close()
 
-def submit_follow_up(question_id, content, is_teacher=False):
+def submit_follow_up(question_id, content, email, is_teacher=False):
     """提交追问/追答"""
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -312,6 +339,7 @@ def submit_follow_up(question_id, content, is_teacher=False):
         new_entry = {
             "content": content,
             "user": "teacher" if is_teacher else "student",
+            "email": email,  # 添加发布者邮箱
             "time": datetime.now().isoformat()
         }
         follow_ups.append(new_entry)
@@ -427,13 +455,13 @@ if __name__ == "__main__":
         get_all_questions()
     
     elif operation == "submit_answer":
-        if len(sys.argv) != 4:
+        if len(sys.argv) != 5:
             print(json.dumps({
                 'success': False,
                 'message': "参数不足"
             }))
             sys.exit(1)
-        submit_answer(sys.argv[2], sys.argv[3])
+        submit_answer(sys.argv[2], sys.argv[3], sys.argv[4])
     
     elif operation == "delete_question":
         if len(sys.argv) != 3:
@@ -454,7 +482,7 @@ if __name__ == "__main__":
         update_question(sys.argv[2], sys.argv[3], sys.argv[4])
 
     elif operation == "submit_follow_up":
-        if len(sys.argv) < 4:
+        if len(sys.argv) < 5:
             print(json.dumps({
                 'success': False,
                 'message': "参数不足"
@@ -462,10 +490,11 @@ if __name__ == "__main__":
             sys.exit(1)
         question_id = sys.argv[2]
         content = sys.argv[3]
+        email = sys.argv[4]
         is_teacher = False
-        if len(sys.argv) >= 5:
-            is_teacher = sys.argv[4].lower() == 'true'
-        submit_follow_up(question_id, content, is_teacher)
+        if len(sys.argv) >= 6:
+            is_teacher = sys.argv[5].lower() == 'true'
+        submit_follow_up(question_id, content, email, is_teacher)
 
     elif operation == "delete_follow_up":
         if len(sys.argv) != 4:

@@ -33,8 +33,10 @@
               <tr v-for="question in questions" :key="question.id" class="question-row" @click="viewQuestionDetail(question)">
                 <td class="title-col">
                   <div class="question-title">{{ question.title }}</div>
-                  <div class="reply-count">
-                    {{ getReplyCount(question) }} 回复
+                  <div class="post-meta">
+                    <span v-if="question.posted_as_teacher" class="teacher-badge">教师身份发布</span>
+                    <span class="author">{{ question.email }}</span>
+                    <span class="reply-count">{{ getReplyCount(question) }} 回复</span>
                   </div>
                 </td>
                 <td class="author-col">{{ question.email }}</td>
@@ -103,13 +105,17 @@
                   class="post reply">
                   <div class="post-header">
                     <div class="post-meta">
-                      <span :class="['author', followUp.user === 'teacher' ? 'teacher' : 'student']">
-                        {{ followUp.user === 'teacher' ? '我' : currentQuestion.email }}
-                      </span>
+                      <template v-if="followUp.user === 'teacher'">
+                        <span class="author teacher">{{ followUp.email }}</span>
+                      </template>
+                      <template v-else>
+                        <!-- 修改这里：显示实际的回复者邮箱 -->
+                        <span class="author student">{{ followUp.email }}</span>
+                      </template>
                       <span class="post-time">{{ formatDate(followUp.time) }}</span>
-                      <!-- 只允许删除自己(老师)的回复 -->
+                      <!-- 只允许删除自己的回复 -->
                       <button 
-                        v-if="followUp.user === 'teacher'" 
+                        v-if="followUp.user === 'teacher' && followUp.email === userEmail" 
                         @click="deleteFollowUp(currentQuestion.id, index)" 
                         class="delete-reply-btn"
                         title="删除回复">
@@ -256,7 +262,8 @@ export default {
         },
         body: JSON.stringify({
           questionId,
-          answer
+          answer,
+          teacherEmail: sessionStorage.getItem('userEmail') // 添加教师邮箱
         })
       })
       
@@ -272,7 +279,8 @@ export default {
         },
         body: JSON.stringify({
           questionId,
-          content
+          content,
+          teacherEmail: sessionStorage.getItem('userEmail') // 添加教师邮箱
         })
       })
       
@@ -596,10 +604,10 @@ close-btn:hover {
 .post-meta {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: 12px;
   color: #666;
-  font-size: 14px;
-  width: 100%;
 }
 
 .author {
@@ -706,5 +714,14 @@ close-btn:hover {
 
 .delete-reply-btn:hover {
   background-color: rgba(244, 67, 54, 0.1);
+}
+
+.teacher-badge {
+  background-color: #4CAF50;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  margin-right: 8px;
 }
 </style>

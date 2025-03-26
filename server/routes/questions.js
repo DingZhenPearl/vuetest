@@ -59,11 +59,12 @@ router.get('/all', async (req, res) => {
  */
 router.post('/answer', async (req, res) => {
     try {
-        const { questionId, answer } = req.body;
+        const { questionId, answer, teacherEmail } = req.body;
         const result = await executePythonScript('qa_operations.py', [
             'submit_answer',
             questionId.toString(),
-            answer
+            answer,
+            teacherEmail // 传递教师邮箱
         ]);
         res.json(result);
     } catch (error) {
@@ -114,11 +115,13 @@ router.put('/:id', async (req, res) => {
  */
 router.post('/follow-up', async (req, res) => {
     try {
-        const { questionId, content } = req.body;
+        const { questionId, content, email } = req.body;
         const result = await executePythonScript('qa_operations.py', [
             'submit_follow_up',
             questionId.toString(),
-            content
+            content,
+            email,        // 传递学生邮箱
+            'false'       // 标记为学生回复
         ]);
         res.json(result);
     } catch (error) {
@@ -131,12 +134,13 @@ router.post('/follow-up', async (req, res) => {
  */
 router.post('/follow-up-answer', async (req, res) => {
     try {
-        const { questionId, content } = req.body;
+        const { questionId, content, teacherEmail } = req.body;
         const result = await executePythonScript('qa_operations.py', [
             'submit_follow_up',
             questionId.toString(),
             content,
-            'true' 
+            teacherEmail,
+            'true'
         ]);
         res.json(result);
     } catch (error) {
