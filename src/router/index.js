@@ -10,6 +10,7 @@ import StudentExams from '../views/student/StudentExams.vue' // 导入新组件
 // 导入新组件
 const TeacherProblems = () => import('../views/teacher/TeacherProblems.vue');
 const TeacherCodingAnalysis = () => import('../views/teacher/TeacherCodingAnalysis.vue'); // 新增
+const TeachingAnalysisView = () => import('../views/teacher/TeachingAnalysisView.vue'); // 添加这行
 
 const routes = [
   {
@@ -75,6 +76,12 @@ const routes = [
     path: '/teacher/coding-analysis',
     name: 'teacherCodingAnalysis',
     component: TeacherCodingAnalysis,
+    meta: { requiresAuth: true, role: 'teacher' }
+  },
+  {
+    path: '/teacher/teaching-analysis',
+    name: 'teachingAnalysis',
+    component: TeachingAnalysisView,
     meta: { requiresAuth: true, role: 'teacher' }
   },
   
