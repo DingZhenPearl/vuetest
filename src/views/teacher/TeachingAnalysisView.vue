@@ -213,12 +213,16 @@ export default {
         return {
           activeStudents: Math.max(acc.activeStudents, curr.active_students),
           totalSubmissions: acc.totalSubmissions + curr.total_submissions,
-          successRate: acc.successRate + (curr.successful_submissions / curr.total_submissions)
+          successRate: acc.successRate + curr.successful_submissions
         };
       }, { activeStudents: 0, totalSubmissions: 0, successRate: 0 });
       
       this.overallStats[0].value = stats.activeStudents;
-      this.overallStats[1].value = `${Math.round(stats.successRate * 100)}%`;
+      // 修改平均完成率的计算方式
+      const completionRate = stats.totalSubmissions > 0 
+        ? Math.round((stats.successRate / stats.totalSubmissions) * 100) 
+        : 0;
+      this.overallStats[1].value = `${completionRate}%`;
       this.overallStats[2].value = stats.totalSubmissions;
       this.overallStats[3].value = this.errorPatterns.length;
     },
