@@ -11,10 +11,13 @@
     "dev": "nodemon server/server.js"
   },
   "dependencies": {
+    "abort-controller": "^3.0.0",
+    "axios": "^1.9.0",
     "chart.js": "^4.4.8",
     "cookie-parser": "^1.4.7",
     "core-js": "^3.8.3",
     "cors": "^2.8.5",
+    "echarts": "^5.6.0",
     "element-plus": "^2.9.6",
     "express-session": "^1.18.1",
     "fs": "^0.0.1-security",
@@ -34,7 +37,8 @@
     "@vue/cli-service": "~5.0.0",
     "eslint": "^7.32.0",
     "eslint-plugin-vue": "^8.0.3",
-    "nodemon": "^3.1.9"
+    "nodemon": "^3.1.9",
+    "typescript": "^5.8.3"
   },
   "eslintConfig": {
     "root": true,
