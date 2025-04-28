@@ -5,7 +5,7 @@ const OpenAI = require('openai');
 
 // 初始化OpenAI客户端
 const openai = new OpenAI({
-    apiKey: 'sk-jcvoeonbuuovidkgtlsesuzvivuqztinzmhrpvtahxqwyfhm',
+    apiKey: 'sk-jvemhtlzzpiaawbmveoqgzohziojbngggfrtvhtxxszyxzzy',
     baseURL: 'https://api.siliconflow.cn/v1/'
 });
 
