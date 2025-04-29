@@ -5,8 +5,8 @@ const OpenAI = require('openai');
 
 // 初始化OpenAI客户端
 const openai = new OpenAI({
-    apiKey: 'sk-jvemhtlzzpiaawbmveoqgzohziojbngggfrtvhtxxszyxzzy',
-    baseURL: 'https://api.siliconflow.cn/v1/'
+    apiKey: 'ollama',
+    baseURL: 'http://localhost:11434/v1/'
 });
 
 /**
@@ -17,7 +17,7 @@ const openai = new OpenAI({
 async function generateAIResponse(messages) {
     try {
         const completion = await openai.chat.completions.create({
-            model: "Qwen/Qwen2.5-Coder-7B-Instruct",
+            model: "qwen3:8b",
             messages: messages,
         });
 
@@ -37,7 +37,7 @@ async function generateAIResponse(messages) {
 async function generateStreamingResponse(messages, onToken, onComplete) {
     try {
         const stream = await openai.chat.completions.create({
-            model: "Qwen/Qwen2.5-Coder-7B-Instruct",
+            model: "qwen3:8b",
             messages: messages,
             stream: true,
         });

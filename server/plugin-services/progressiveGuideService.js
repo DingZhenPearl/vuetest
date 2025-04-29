@@ -6,6 +6,16 @@ const OpenAI = require('openai');
 
 // 创建OpenAI客户端函数
 function createOpenAIClient(apiKey, baseURL) {
+    // 检查是否使用本地ollama模型
+    if (apiKey === 'ollama' || (!apiKey && !baseURL)) {
+        // 默认使用本地ollama配置
+        return new OpenAI({
+            apiKey: 'ollama',
+            baseURL: 'http://localhost:11434/v1/'
+        });
+    }
+
+    // 使用提供的配置或默认配置
     return new OpenAI({
         apiKey: apiKey || 'sk-jvemhtlzzpiaawbmveoqgzohziojbngggfrtvhtxxszyxzzy',
         baseURL: baseURL || 'https://api.siliconflow.cn/v1/'
@@ -45,9 +55,19 @@ async function generateStreamingGuidance(req, res) {
             apiEndpoint ? new URL(apiEndpoint).origin : undefined
         );
 
+        // 确定使用的模型名称
+        let modelToUse = modelName || "Qwen/Qwen2.5-Coder-7B-Instruct";
+
+        // 如果是使用ollama，则使用qwen3:8b模型
+        if (apiKey === 'ollama' || (!apiKey && !apiEndpoint)) {
+            modelToUse = "qwen3:8b";
+        }
+
+        console.log(`使用模型: ${modelToUse}, API端点: ${apiKey === 'ollama' ? 'ollama本地' : apiEndpoint || '默认'}`);
+
         // 创建流式请求
         const stream = await openai.chat.completions.create({
-            model: modelName || "Qwen/Qwen2.5-Coder-7B-Instruct",
+            model: modelToUse,
             messages: messages,
             temperature: parseFloat(temperature),
             max_tokens: parseInt(maxTokens),
@@ -110,9 +130,19 @@ async function generateGuidance(req, res) {
             apiEndpoint ? new URL(apiEndpoint).origin : undefined
         );
 
+        // 确定使用的模型名称
+        let modelToUse = modelName || "Qwen/Qwen2.5-Coder-7B-Instruct";
+
+        // 如果是使用ollama，则使用qwen3:8b模型
+        if (apiKey === 'ollama' || (!apiKey && !apiEndpoint)) {
+            modelToUse = "qwen3:8b";
+        }
+
+        console.log(`使用模型: ${modelToUse}, API端点: ${apiKey === 'ollama' ? 'ollama本地' : apiEndpoint || '默认'}`);
+
         // 创建非流式请求
         const completion = await openai.chat.completions.create({
-            model: modelName || "Qwen/Qwen2.5-Coder-7B-Instruct",
+            model: modelToUse,
             messages: messages,
             temperature: parseFloat(temperature),
             max_tokens: parseInt(maxTokens)
