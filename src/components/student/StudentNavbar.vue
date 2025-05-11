@@ -74,7 +74,7 @@
             <i class="el-icon-reading"></i>
             <span>学习资源</span>
           </template>
-          <el-menu-item index="/programming-concepts" @click.prevent="explainProgrammingConcepts">
+          <el-menu-item index="/student/programming-concepts">
             <i class="el-icon-edit-outline"></i>
             <span>编程概念</span>
           </el-menu-item>
@@ -84,7 +84,7 @@
           </el-menu-item>
         </el-submenu>
 
-        <el-menu-item index="/learning-analysis" @click.prevent="learningBehaviorAnalysis" class="menu-item">
+        <el-menu-item index="/student/learning-analysis" class="menu-item">
           <i class="el-icon-data-analysis"></i>
           <template v-slot:title>学习分析</template>
         </el-menu-item>
@@ -156,12 +156,7 @@ export default {
     toggleSidebar() {
       this.isCollapsed = !this.isCollapsed;
     },
-    explainProgrammingConcepts() {
-      this.$message({
-        message: '编程概念讲解功能即将上线，敬请期待！',
-        type: 'info'
-      });
-    },
+
     caseAnalysis() {
       this.$message({
         message: '实战案例分析功能即将上线，敬请期待！',
@@ -174,12 +169,7 @@ export default {
         type: 'info'
       });
     },
-    learningBehaviorAnalysis() {
-      this.$message({
-        message: '学习行为分析功能即将上线，敬请期待！',
-        type: 'info'
-      });
-    },
+
     logout() {
       console.log("退出登录");
 

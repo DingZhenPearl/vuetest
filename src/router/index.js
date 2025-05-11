@@ -6,6 +6,8 @@ import StudentAiChat from '../views/student/StudentAiChat.vue' // 导入新组�
 import StudentQuestion from '../views/student/StudentQuestion.vue'
 import StudentProfile from '../views/student/StudentProfile.vue' // 导入个人信息组件
 import StudentExams from '../views/student/StudentExams.vue' // 导入新组件
+import StudentLearningAnalysis from '../views/student/StudentLearningAnalysis.vue' // 导入学习分析组件
+import StudentProgrammingConcepts from '../views/student/StudentProgrammingConcepts.vue' // 导入编程概念组件
 
 // 导入新组件
 const TeacherProblems = () => import('../views/teacher/TeacherProblems.vue');
@@ -84,7 +86,7 @@ const routes = [
     component: TeachingAnalysisView,
     meta: { requiresAuth: true, role: 'teacher' }
   },
-  
+
   // 学生相关路由
   {
     path: '/student',
@@ -119,6 +121,18 @@ const routes = [
     path: '/student/exams',
     name: 'studentExams',
     component: StudentExams,
+    meta: { requiresAuth: true, role: 'student' }
+  },
+  {
+    path: '/student/learning-analysis',
+    name: 'studentLearningAnalysis',
+    component: StudentLearningAnalysis,
+    meta: { requiresAuth: true, role: 'student' }
+  },
+  {
+    path: '/student/programming-concepts',
+    name: 'studentProgrammingConcepts',
+    component: StudentProgrammingConcepts,
     meta: { requiresAuth: true, role: 'student' }
   },
   /* 暂时注释掉尚未创建的学生页面
@@ -163,33 +177,33 @@ router.beforeEach((to, from, next) => {
   const userRole = sessionStorage.getItem('userRole') // 改为 sessionStorage
   const username = sessionStorage.getItem('username') // 改为 sessionStorage
   const userIdentifier = sessionStorage.getItem('userIdentifier') // 改为 sessionStorage
-  
+
   // 确保所有页面跳转都携带角色参数和用户标识符
   const effectiveRole = urlRole || userRole
-  
+
   if (to.matched.some(record => record.meta.requiresAuth)) {
     // 如果没有登录凭证，跳转到登录页
     if (!username) {
-      next({ 
+      next({
         path: '/logIn',
-        query: { 
+        query: {
           redirect: to.fullPath,
           role: effectiveRole
         }
       })
       return
     }
-    
+
     // 检查页面所需权限与有效角色是否匹配
     if (to.meta.role && to.meta.role !== effectiveRole) {
       // 角色不匹配，重定向到对应主页
-      next({ 
+      next({
         path: `/${effectiveRole}/home`,
-        query: { role: effectiveRole, uid: userIdentifier } 
+        query: { role: effectiveRole, uid: userIdentifier }
       })
     } else {
       // 确保保留角色参数和用户标识符
-      if ((effectiveRole && (!to.query.role || to.query.role !== effectiveRole)) || 
+      if ((effectiveRole && (!to.query.role || to.query.role !== effectiveRole)) ||
           (userIdentifier && (!to.query.uid || to.query.uid !== userIdentifier))) {
         next({
           path: to.path,
@@ -201,7 +215,7 @@ router.beforeEach((to, from, next) => {
     }
   } else {
     // 对于不需要权限的页面，也需要保留角色参数和用户标识符
-    if ((effectiveRole && (!to.query.role || to.query.role !== effectiveRole)) || 
+    if ((effectiveRole && (!to.query.role || to.query.role !== effectiveRole)) ||
         (userIdentifier && (!to.query.uid || to.query.uid !== userIdentifier))) {
       next({
         path: to.path,
