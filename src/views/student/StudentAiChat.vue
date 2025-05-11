@@ -76,13 +76,18 @@
 
           <!-- 输入框 -->
           <div class="chat-input-container">
-            <t-input
+            <t-textarea
+              ref="chatInput"
               v-model="userMessage"
               :loading="isLoading"
               :disabled="isLoading"
-              placeholder="请输入您的问题..."
-              @keydown.enter.prevent="sendMessage"
+              placeholder="请输入您的问题... (Shift+回车换行，回车发送)"
+              @keyup.enter="sendMessage"
+              @keydown.enter.prevent
+              @enter="sendMessage"
+              enterkeyhint="send"
               class="chat-input"
+              :autosize="{ minRows: 1, maxRows: 5 }"
             />
             <t-button theme="primary" :loading="isLoading" :disabled="isLoading" @click="sendMessage">
               <template #icon><t-icon name="send" /></template>
@@ -116,7 +121,8 @@ export default {
       streamController: null,
       selectedModelType: 'local', // 默认使用本地模型
       currentModelName: 'qwen3:8b', // 默认模型名称
-      modelConfig: null // 存储完整的模型配置
+      modelConfig: null, // 存储完整的模型配置
+      handleKeyPress: null // 存储键盘事件处理函数
     }
   },
   mounted() {
@@ -146,8 +152,57 @@ export default {
 
         // 强制更新视图
         this.$forceUpdate()
+
+        // 添加原生事件监听器
+        setTimeout(() => {
+          // 获取输入框的DOM元素
+          const inputElement = this.$refs.chatInput?.$el?.querySelector('textarea');
+          if (inputElement) {
+            console.log('找到文本区域元素，添加原生事件监听器');
+            // 添加原生事件监听器
+            this.handleKeyPress = (event) => {
+              if (event.key === 'Enter') {
+                if (event.shiftKey) {
+                  // Shift+回车插入换行符
+                  event.preventDefault();
+
+                  // 获取当前光标位置
+                  const cursorPos = inputElement.selectionStart;
+                  const textBefore = this.userMessage.substring(0, cursorPos);
+                  const textAfter = this.userMessage.substring(cursorPos);
+
+                  // 在光标位置插入换行符
+                  this.userMessage = textBefore + '\n' + textAfter;
+
+                  // 设置新的光标位置
+                  this.$nextTick(() => {
+                    inputElement.selectionStart = inputElement.selectionEnd = cursorPos + 1;
+                  });
+
+                  console.log('已插入换行符');
+                } else {
+                  // 普通回车发送消息
+                  event.preventDefault();
+                  this.sendMessage(event);
+                }
+              }
+            };
+            inputElement.addEventListener('keypress', this.handleKeyPress);
+          } else {
+            console.error('未找到输入框元素');
+          }
+        }, 1000);
       }, 500)
     })
+  },
+  beforeUnmount() {
+    // 移除原生事件监听器
+    const inputElement = this.$refs.chatInput?.$el?.querySelector('textarea');
+    if (inputElement) {
+      console.log('移除原生事件监听器');
+      // 移除事件监听器
+      inputElement.removeEventListener('keypress', this.handleKeyPress);
+    }
   },
   watch: {
     // 监听聊天消息变化，自动滚动到底部
@@ -221,8 +276,12 @@ export default {
     async sendMessage(event) {
       // 检查是否是回车键事件，并且是否按下了Shift键（Shift+Enter用于换行）
       if (event && event.key === 'Enter' && event.shiftKey) {
+        console.log('Shift+Enter被按下，不发送消息');
         return; // 如果是Shift+Enter，不发送消息
       }
+
+      // 添加调试日志
+      console.log('sendMessage被调用', event ? event.type : '无事件类型')
 
       const message = this.userMessage.trim()
       if (!message) return
@@ -713,6 +772,19 @@ export default {
 
 .chat-input {
   flex: 1;
+}
+
+/* 自定义文本区域样式 */
+:deep(.t-textarea) {
+  width: 100%;
+  resize: none;
+  border-radius: 4px;
+}
+
+:deep(.t-textarea__inner) {
+  min-height: 40px;
+  padding: 8px 12px;
+  line-height: 1.5;
 }
 
 /* 响应式设计 */
