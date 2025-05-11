@@ -1,0 +1,13 @@
+{
+  "modelType": "local",
+  "localModel": {
+    "apiKey": "ollama",
+    "baseURL": "http://localhost:11434/v1/",
+    "model": "qwen3:8b"
+  },
+  "apiModel": {
+    "apiKey": "sk-jvemhtlzzpiaawbmveoqgzohziojbngggfrtvhtxxszyxzzy",
+    "baseURL": "https://api.siliconflow.cn/v1/",
+    "model": "Qwen/Qwen2.5-Coder-7B-Instruct"
+  }
+}

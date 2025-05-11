@@ -26,16 +26,26 @@
         <div class="header">
           <div class="header-content">
             <h1>AI对话助手</h1>
-            <button @click="startNewChat" class="new-chat-btn">新对话</button>
+            <div class="header-controls">
+              <div class="model-selector">
+                <label>模型选择:</label>
+                <select v-model="selectedModelType" @change="switchModel">
+                  <option value="local">本地模型</option>
+                  <option value="api">API模型</option>
+                </select>
+                <span class="model-name">{{ currentModelName }}</span>
+              </div>
+              <button @click="startNewChat" class="new-chat-btn">新对话</button>
+            </div>
           </div>
         </div>
-        
+
         <!-- 聊天消息容器 -->
         <div id="chat-container" ref="chatContainer" class="chat-container">
-          <div v-for="(message, index) in currentMessages" :key="index" 
+          <div v-for="(message, index) in currentMessages" :key="index"
                :class="['message-container', message.sender === 'user' ? 'user-message-container' : '']">
-            <img :src="message.sender === 'ai' ? '/static/ai-avatar.jpg' : '/static/user-avatar.jpg'" 
-                 :alt="message.sender === 'ai' ? 'AI头像' : '用户头像'" 
+            <img :src="message.sender === 'ai' ? '/static/ai-avatar.jpg' : '/static/user-avatar.jpg'"
+                 :alt="message.sender === 'ai' ? 'AI头像' : '用户头像'"
                  class="avatar">
             <div :class="['message-bubble', `${message.sender}-message`]">{{ message.content }}</div>
           </div>
@@ -45,11 +55,11 @@
         <div class="bottom-container">
           <div class="status" id="status">{{ typingStatus }}</div>
           <div class="input-container">
-            <input 
-              type="text" 
-              v-model="userMessage" 
-              @keypress.enter="sendMessage" 
-              placeholder="请输入您的问题..." 
+            <input
+              type="text"
+              v-model="userMessage"
+              @keypress.enter="sendMessage"
+              placeholder="请输入您的问题..."
               class="user-input">
             <button @click="sendMessage" class="send-btn">发送</button>
           </div>
@@ -75,12 +85,16 @@ export default {
       userMessage: '',
       chatHistory: [],
       typingStatus: '',
-      streamController: null
+      streamController: null,
+      selectedModelType: 'local', // 默认使用本地模型
+      currentModelName: 'qwen3:8b', // 默认模型名称
+      modelConfig: null // 存储完整的模型配置
     }
   },
   mounted() {
     this.loadChatHistory()
     this.startNewChat()
+    this.getModelConfig() // 获取当前模型配置
   },
   updated() {
     this.scrollToBottom()
@@ -91,49 +105,49 @@ export default {
         this.$refs.chatContainer.scrollTop = this.$refs.chatContainer.scrollHeight
       }
     },
-    
+
     // 开始新对话
     startNewChat() {
       this.currentMessages = []
       this.currentChatId = null
       this.isNewChat = true
-      
+
       const welcomeMessage = '您好！我是AI助手，有什么可以帮您的？'
       this.currentMessages.push({ sender: 'ai', content: welcomeMessage })
     },
-    
+
     // 显示AI正在输入状态
     showTypingIndicator() {
       this.typingStatus = 'AI正在输入...'
     },
-    
+
     // 隐藏AI正在输入状态
     hideTypingIndicator() {
       this.typingStatus = ''
     },
-    
+
     // 发送消息到服务器
     async sendMessage() {
       const message = this.userMessage.trim()
       if (!message) return
-      
+
       // 添加用户消息到界面
       this.currentMessages.push({ sender: 'user', content: message })
       this.userMessage = ''
       this.showTypingIndicator()
-      
+
       // 如果有正在进行的请求，终止它
       if (this.streamController) {
         this.streamController.abort()
       }
-      
+
       // 创建新的AbortController用于可能需要中断的请求
       this.streamController = new AbortController()
-      
+
       // 添加一个空的AI消息，用于逐步填充内容
       this.currentMessages.push({ sender: 'ai', content: '' })
       const aiMessageIndex = this.currentMessages.length - 1
-      
+
       try {
         // 使用EventSource进行SSE连接
         const response = await fetch('/api/chat/message', {
@@ -141,18 +155,18 @@ export default {
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             message,
             messageHistory: this.currentMessages.slice(0, -2) // 不包括用户刚发送的消息和空的AI消息
           }),
           signal: this.streamController.signal
         })
-        
+
         // 确保响应是可读流
         const reader = response.body.getReader()
         const decoder = new TextDecoder()
         let completeResponse = ''
-        
+
         // 读取流
         let reading = true;
         while (reading) {
@@ -161,17 +175,17 @@ export default {
             reading = false;
             break;
           }
-          
+
           // 解码收到的数据
           const chunk = decoder.decode(value, { stream: true })
-          
+
           // 处理SSE格式数据
           const lines = chunk.split('\n\n')
           for (const line of lines) {
             if (line.startsWith('data: ')) {
               try {
                 const data = JSON.parse(line.substring(6))
-                
+
                 if (data.error) {
                   // 处理错误
                   this.currentMessages[aiMessageIndex].content = '抱歉，发生了错误。请稍后重试。'
@@ -179,7 +193,7 @@ export default {
                 } else if (data.done) {
                   // 流结束
                   this.hideTypingIndicator()
-                  
+
                   // 保存或更新聊天记录
                   if (this.isNewChat) {
                     const result = await this.saveChat()
@@ -216,7 +230,7 @@ export default {
         this.streamController = null
       }
     },
-    
+
     // 加载聊天历史
     async loadChatHistory() {
       const userEmail = sessionStorage.getItem('userEmail')
@@ -239,9 +253,9 @@ export default {
         }
 
         const data = await response.json()
-        
+
         console.log('获取到的聊天记录数据:', data)
-        
+
         if (Array.isArray(data)) {
           this.chatHistory = data
         } else {
@@ -253,52 +267,52 @@ export default {
         this.chatHistory = []
       }
     },
-    
+
     // 获取对话中用户的第一条消息作为标题
     getFirstUserMessage(history) {
       let firstUserMessage = '未命名对话'
       if (history.messages && Array.isArray(history.messages)) {
         const firstMsg = history.messages.find(msg => msg.sender === 'user')
         if (firstMsg) {
-          firstUserMessage = firstMsg.content.length > 20 
+          firstUserMessage = firstMsg.content.length > 20
             ? firstMsg.content.substring(0, 20) + '...'
             : firstMsg.content
         }
       }
       return firstUserMessage
     },
-    
+
     // 加载特定的聊天记录
     async loadChat(chatId) {
       try {
         const response = await fetch(`/api/chat/${chatId}`)
-        
+
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`)
         }
-        
+
         const chat = await response.json()
-        
+
         if (chat && chat.messages) {
           this.currentChatId = chatId
           this.currentMessages = chat.messages
           this.isNewChat = false
         } else {
           console.error('加载的聊天记录格式不正确:', chat)
-          this.currentMessages.push({ 
-            sender: 'ai', 
-            content: '加载历史对话失败，请尝试开始新的对话。' 
+          this.currentMessages.push({
+            sender: 'ai',
+            content: '加载历史对话失败，请尝试开始新的对话。'
           })
         }
       } catch (error) {
         console.error('加载对话失败:', error)
-        this.currentMessages.push({ 
-          sender: 'ai', 
-          content: '加载历史对话失败，请尝试开始新的对话。' 
+        this.currentMessages.push({
+          sender: 'ai',
+          content: '加载历史对话失败，请尝试开始新的对话。'
         })
       }
     },
-    
+
     // 保存新的聊天记录
     async saveChat() {
       const userEmail = sessionStorage.getItem('userEmail')
@@ -319,7 +333,7 @@ export default {
         return null
       }
     },
-    
+
     // 更新现有聊天记录
     async updateChat() {
       try {
@@ -337,22 +351,91 @@ export default {
         console.error('更新对话失败:', error)
       }
     },
-    
+
     // 删除聊天记录
     async deleteChat(chatId) {
       if (!confirm('确定要删除这条对话记录吗？')) return
-      
+
       try {
         await fetch(`/api/chat/${chatId}`, {
           method: 'DELETE'
         })
-        
+
         if (chatId === this.currentChatId) {
           this.startNewChat()
         }
         await this.loadChatHistory()
       } catch (error) {
         console.error('删除对话失败:', error)
+      }
+    },
+
+    // 获取当前模型配置
+    async getModelConfig() {
+      try {
+        const response = await fetch('/api/chat/model-config')
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`)
+        }
+
+        const data = await response.json()
+        if (data.success && data.modelInfo) {
+          this.selectedModelType = data.modelInfo.modelType
+          this.currentModelName = data.modelInfo.currentModel
+          this.modelConfig = data.modelInfo.config
+          console.log('当前模型配置:', data.modelInfo)
+        }
+      } catch (error) {
+        console.error('获取模型配置失败:', error)
+        // 使用默认配置
+        this.selectedModelType = 'local'
+        this.currentModelName = 'qwen3:8b'
+      }
+    },
+
+    // 切换模型类型
+    async switchModel() {
+      try {
+        this.typingStatus = '正在切换模型...'
+
+        const response = await fetch('/api/chat/switch-model', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            modelType: this.selectedModelType
+          })
+        })
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`)
+        }
+
+        const data = await response.json()
+        if (data.success) {
+          this.currentModelName = data.modelInfo.currentModel
+          this.modelConfig = data.modelInfo.config
+
+          // 显示成功消息
+          this.currentMessages.push({
+            sender: 'ai',
+            content: `已切换到${this.selectedModelType === 'local' ? '本地' : 'API'}模型: ${this.currentModelName}`
+          })
+        } else {
+          throw new Error(data.message || '切换模型失败')
+        }
+      } catch (error) {
+        console.error('切换模型失败:', error)
+        this.currentMessages.push({
+          sender: 'ai',
+          content: `切换模型失败: ${error.message}`
+        })
+
+        // 恢复之前的选择
+        await this.getModelConfig()
+      } finally {
+        this.typingStatus = ''
       }
     }
   }
@@ -447,6 +530,42 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.model-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f1f1f1;
+  padding: 5px 10px;
+  border-radius: 4px;
+}
+
+.model-selector label {
+  font-size: 14px;
+  color: #333;
+}
+
+.model-selector select {
+  padding: 4px 8px;
+  border: 1px solid #ddd;
+  border-radius: 3px;
+  background: white;
+  cursor: pointer;
+}
+
+.model-name {
+  font-size: 12px;
+  color: #666;
+  background: #e3f2fd;
+  padding: 2px 6px;
+  border-radius: 3px;
 }
 
 .new-chat-btn {
@@ -555,11 +674,11 @@ export default {
   .history-panel {
     width: 150px;
   }
-  
+
   .container {
     margin-left: 150px;
   }
-  
+
   .bottom-container {
     left: 420px;
   }

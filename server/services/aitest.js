@@ -2,12 +2,119 @@
  * AI聊天服务配置
  */
 const OpenAI = require('openai');
+const fs = require('fs');
+const path = require('path');
+
+// 配置文件路径
+const CONFIG_PATH = path.join(__dirname, '../config/ai_config.json');
+
+// 默认配置
+let aiConfig = {
+    modelType: 'local', // 'local' 或 'api'
+    localModel: {
+        apiKey: 'ollama',
+        baseURL: 'http://localhost:11434/v1/',
+        model: 'qwen3:8b'
+    },
+    apiModel: {
+        apiKey: 'sk-jvemhtlzzpiaawbmveoqgzohziojbngggfrtvhtxxszyxzzy',
+        baseURL: 'https://api.siliconflow.cn/v1/',
+        model: 'Qwen/Qwen2.5-Coder-7B-Instruct'
+    }
+};
+
+// 确保配置目录存在
+function ensureConfigDir() {
+    const configDir = path.join(__dirname, '../config');
+    if (!fs.existsSync(configDir)) {
+        fs.mkdirSync(configDir, { recursive: true });
+    }
+}
+
+// 加载配置
+function loadConfig() {
+    try {
+        ensureConfigDir();
+        if (fs.existsSync(CONFIG_PATH)) {
+            const configData = fs.readFileSync(CONFIG_PATH, 'utf8');
+            aiConfig = JSON.parse(configData);
+            console.log('已加载AI配置:', aiConfig.modelType);
+        } else {
+            // 如果配置文件不存在，创建默认配置
+            saveConfig(aiConfig);
+        }
+    } catch (error) {
+        console.error('加载AI配置失败:', error);
+    }
+}
+
+// 保存配置
+function saveConfig(config) {
+    try {
+        ensureConfigDir();
+        fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf8');
+        aiConfig = config;
+        console.log('已保存AI配置:', config.modelType);
+    } catch (error) {
+        console.error('保存AI配置失败:', error);
+    }
+}
+
+// 初始加载配置
+loadConfig();
+
+// 获取当前OpenAI客户端配置
+function getCurrentConfig() {
+    if (aiConfig.modelType === 'local') {
+        return {
+            apiKey: aiConfig.localModel.apiKey,
+            baseURL: aiConfig.localModel.baseURL,
+            model: aiConfig.localModel.model
+        };
+    } else {
+        return {
+            apiKey: aiConfig.apiModel.apiKey,
+            baseURL: aiConfig.apiModel.baseURL,
+            model: aiConfig.apiModel.model
+        };
+    }
+}
+
+// 创建OpenAI客户端
+function createOpenAIClient() {
+    const config = getCurrentConfig();
+    return new OpenAI({
+        apiKey: config.apiKey,
+        baseURL: config.baseURL
+    });
+}
 
 // 初始化OpenAI客户端
-const openai = new OpenAI({
-    apiKey: 'ollama',
-    baseURL: 'http://localhost:11434/v1/'
-});
+let openai = createOpenAIClient();
+
+// 切换模型类型
+function switchModelType(type) {
+    if (type !== 'local' && type !== 'api') {
+        throw new Error('无效的模型类型，必须是 "local" 或 "api"');
+    }
+
+    aiConfig.modelType = type;
+    saveConfig(aiConfig);
+
+    // 重新创建客户端
+    openai = createOpenAIClient();
+
+    return getCurrentModelInfo();
+}
+
+// 获取当前模型信息
+function getCurrentModelInfo() {
+    return {
+        modelType: aiConfig.modelType,
+        currentModel: getCurrentConfig().model,
+        config: aiConfig
+    };
+}
 
 /**
  * 生成AI回复
@@ -16,8 +123,9 @@ const openai = new OpenAI({
  */
 async function generateAIResponse(messages) {
     try {
+        const config = getCurrentConfig();
         const completion = await openai.chat.completions.create({
-            model: "qwen3:8b",
+            model: config.model,
             messages: messages,
         });
 
@@ -36,14 +144,15 @@ async function generateAIResponse(messages) {
  */
 async function generateStreamingResponse(messages, onToken, onComplete) {
     try {
+        const config = getCurrentConfig();
         const stream = await openai.chat.completions.create({
-            model: "qwen3:8b",
+            model: config.model,
             messages: messages,
             stream: true,
         });
 
         let responseText = '';
-        
+
         // 处理流式响应
         for await (const part of stream) {
             const content = part.choices[0]?.delta?.content || '';
@@ -52,7 +161,7 @@ async function generateStreamingResponse(messages, onToken, onComplete) {
                 onToken(content);
             }
         }
-        
+
         // 流结束
         onComplete(responseText);
     } catch (error) {
@@ -64,5 +173,8 @@ async function generateStreamingResponse(messages, onToken, onComplete) {
 module.exports = {
     openai,
     generateAIResponse,
-    generateStreamingResponse
+    generateStreamingResponse,
+    switchModelType,
+    getCurrentModelInfo,
+    saveConfig
 };
