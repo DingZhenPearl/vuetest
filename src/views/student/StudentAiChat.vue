@@ -8,14 +8,24 @@
       <!-- 历史对话面板 -->
       <div class="history-panel">
         <h3>历史对话</h3>
+        <div class="search-container">
+          <t-input
+            v-model="searchKeyword"
+            placeholder="搜索历史对话"
+            clearable
+            prefixIcon="search"
+            @clear="loadChatHistory"
+            @change="searchHistory"
+          />
+        </div>
         <div id="history-list">
-          <div v-if="chatHistory.length === 0" class="history-item">暂无历史记录</div>
-          <div v-for="history in chatHistory" :key="history.id" class="history-item">
+          <div v-if="displayedHistory.length === 0" class="history-item">暂无历史记录</div>
+          <div v-for="history in displayedHistory" :key="history.id" class="history-item">
             <div class="title">{{ getFirstUserMessage(history) }}</div>
             <div class="date">{{ new Date(history.created_at).toLocaleString() }}</div>
             <div class="history-controls">
-              <button @click="loadChat(history.id)">查看</button>
-              <button class="delete-btn" @click="deleteChat(history.id)">删除</button>
+              <t-button theme="primary" size="small" variant="text" @click="loadChat(history.id)">查看</t-button>
+              <t-button theme="danger" size="small" variant="text" @click="deleteChat(history.id)">删除</t-button>
             </div>
           </div>
         </div>
@@ -27,41 +37,57 @@
           <div class="header-content">
             <h1>AI对话助手</h1>
             <div class="header-controls">
-              <div class="model-selector">
-                <label>模型选择:</label>
-                <select v-model="selectedModelType" @change="switchModel">
-                  <option value="local">本地模型</option>
-                  <option value="api">API模型</option>
-                </select>
-                <span class="model-name">{{ currentModelName }}</span>
-              </div>
-              <button @click="startNewChat" class="new-chat-btn">新对话</button>
+              <t-radio-group v-model="selectedModelType" @change="switchModel">
+                <t-radio-button value="local">本地模型</t-radio-button>
+                <t-radio-button value="api">API模型</t-radio-button>
+              </t-radio-group>
+              <span class="model-name">当前模型: {{ currentModelName }}</span>
+              <t-button theme="primary" @click="startNewChat">新对话</t-button>
             </div>
           </div>
         </div>
 
-        <!-- 聊天消息容器 -->
-        <div id="chat-container" ref="chatContainer" class="chat-container">
-          <div v-for="(message, index) in currentMessages" :key="index"
-               :class="['message-container', message.sender === 'user' ? 'user-message-container' : '']">
-            <img :src="message.sender === 'ai' ? '/static/ai-avatar.jpg' : '/static/user-avatar.jpg'"
-                 :alt="message.sender === 'ai' ? 'AI头像' : '用户头像'"
-                 class="avatar">
-            <div :class="['message-bubble', `${message.sender}-message`]">{{ message.content }}</div>
+        <!-- 使用TDesign AI Chat组件 - 参考示例代码 -->
+        <div class="chat-wrapper">
+          <div class="chat-messages">
+            <!-- 动态消息列表 -->
+            <div v-if="currentMessages && currentMessages.length > 0">
+              <t-chat-item
+                v-for="(message, index) in currentMessages"
+                :key="index"
+                :avatar="message.sender === 'ai' ? '/static/ai-avatar.jpg' : '/static/user-avatar.jpg'"
+                :name="message.sender === 'ai' ? 'AI助手' : '用户'"
+                :role="message.sender === 'ai' ? 'assistant' : 'user'"
+                :content="message.content"
+                variant="outline"
+              ></t-chat-item>
+            </div>
+            <!-- 默认欢迎消息 -->
+            <div v-else>
+              <t-chat-item
+                avatar="/static/ai-avatar.jpg"
+                name="AI助手"
+                role="assistant"
+                content="您好！我是AI助手，有什么可以帮您的？"
+                variant="outline"
+              ></t-chat-item>
+            </div>
           </div>
-        </div>
 
-        <!-- 底部输入区 -->
-        <div class="bottom-container">
-          <div class="status" id="status">{{ typingStatus }}</div>
-          <div class="input-container">
-            <input
-              type="text"
+          <!-- 输入框 -->
+          <div class="chat-input-container">
+            <t-input
               v-model="userMessage"
-              @keypress.enter="sendMessage"
+              :loading="isLoading"
+              :disabled="isLoading"
               placeholder="请输入您的问题..."
-              class="user-input">
-            <button @click="sendMessage" class="send-btn">发送</button>
+              @keydown.enter.prevent="sendMessage"
+              class="chat-input"
+            />
+            <t-button theme="primary" :loading="isLoading" :disabled="isLoading" @click="sendMessage">
+              <template #icon><t-icon name="send" /></template>
+              发送
+            </t-button>
           </div>
         </div>
       </div>
@@ -84,7 +110,9 @@ export default {
       isNewChat: true,
       userMessage: '',
       chatHistory: [],
-      typingStatus: '',
+      displayedHistory: [], // 用于显示过滤后的历史记录
+      searchKeyword: '', // 搜索关键词
+      isLoading: false, // 加载状态
       streamController: null,
       selectedModelType: 'local', // 默认使用本地模型
       currentModelName: 'qwen3:8b', // 默认模型名称
@@ -92,28 +120,91 @@ export default {
     }
   },
   mounted() {
-    this.loadChatHistory()
-    this.startNewChat()
-    this.getModelConfig() // 获取当前模型配置
+    // 初始化空数组，确保组件能正确渲染
+    this.currentMessages = []
+
+    // 获取配置
+    this.getModelConfig()
+
+    // 延迟加载历史记录和开始新对话，确保组件已完全渲染
+    this.$nextTick(() => {
+      setTimeout(() => {
+        this.loadChatHistory()
+
+        // 如果没有历史记录，开始新对话
+        if (this.currentMessages.length === 0) {
+          this.startNewChat()
+        }
+
+        // 添加测试消息，用于调试
+        console.log('添加测试消息')
+        this.currentMessages = [
+          { sender: 'ai', content: '您好！我是AI助手，有什么可以帮您的？' },
+
+        ]
+        console.log('当前消息数组:', this.currentMessages)
+
+        // 强制更新视图
+        this.$forceUpdate()
+      }, 500)
+    })
   },
-  updated() {
-    this.scrollToBottom()
+  watch: {
+    // 监听聊天消息变化，自动滚动到底部
+    currentMessages: {
+      deep: true,
+      immediate: true, // 立即触发一次
+      handler(newVal) {
+        console.log('消息数组变化:', newVal)
+
+        // 确保DOM更新后再滚动
+        this.$nextTick(() => {
+          setTimeout(() => {
+            const chatContent = document.querySelector('.chat-messages');
+            if (chatContent) {
+              chatContent.scrollTop = chatContent.scrollHeight + 200; // 添加额外偏移，确保消息完全可见
+              console.log('滚动到底部, 高度:', chatContent.scrollHeight)
+            } else {
+              console.error('找不到聊天内容元素')
+            }
+
+            // 强制更新视图
+            this.$forceUpdate()
+          }, 200); // 增加延迟时间，确保DOM已更新
+        });
+      }
+    }
   },
   methods: {
-    scrollToBottom() {
-      if (this.$refs.chatContainer) {
-        this.$refs.chatContainer.scrollTop = this.$refs.chatContainer.scrollHeight
+    // 搜索历史记录
+    searchHistory() {
+      if (!this.searchKeyword.trim()) {
+        this.displayedHistory = [...this.chatHistory];
+        return;
       }
+
+      const keyword = this.searchKeyword.toLowerCase().trim();
+      this.displayedHistory = this.chatHistory.filter(history => {
+        // 在消息内容中搜索关键词
+        if (history.messages && Array.isArray(history.messages)) {
+          return history.messages.some(msg =>
+            msg.content.toLowerCase().includes(keyword)
+          );
+        }
+        return false;
+      });
     },
 
     // 开始新对话
     startNewChat() {
-      this.currentMessages = []
       this.currentChatId = null
       this.isNewChat = true
 
-      const welcomeMessage = '您好！我是AI助手，有什么可以帮您的？'
-      this.currentMessages.push({ sender: 'ai', content: welcomeMessage })
+      // 使用直接赋值而不是push，确保响应式更新
+      this.currentMessages = [
+        { sender: 'ai', content: '您好！我是AI助手，有什么可以帮您的？' }
+      ]
+      console.log('开始新对话，消息数组:', this.currentMessages)
     },
 
     // 显示AI正在输入状态
@@ -127,14 +218,23 @@ export default {
     },
 
     // 发送消息到服务器
-    async sendMessage() {
+    async sendMessage(event) {
+      // 检查是否是回车键事件，并且是否按下了Shift键（Shift+Enter用于换行）
+      if (event && event.key === 'Enter' && event.shiftKey) {
+        return; // 如果是Shift+Enter，不发送消息
+      }
+
       const message = this.userMessage.trim()
       if (!message) return
 
-      // 添加用户消息到界面
-      this.currentMessages.push({ sender: 'user', content: message })
+      console.log('发送消息:', message)
+
+      // 创建新的消息数组，包含用户消息
+      const newMessages = [...this.currentMessages, { sender: 'user', content: message }]
+      this.currentMessages = newMessages
+
       this.userMessage = ''
-      this.showTypingIndicator()
+      this.isLoading = true
 
       // 如果有正在进行的请求，终止它
       if (this.streamController) {
@@ -145,7 +245,7 @@ export default {
       this.streamController = new AbortController()
 
       // 添加一个空的AI消息，用于逐步填充内容
-      this.currentMessages.push({ sender: 'ai', content: '' })
+      this.currentMessages = [...this.currentMessages, { sender: 'ai', content: '' }]
       const aiMessageIndex = this.currentMessages.length - 1
 
       try {
@@ -188,11 +288,13 @@ export default {
 
                 if (data.error) {
                   // 处理错误
-                  this.currentMessages[aiMessageIndex].content = '抱歉，发生了错误。请稍后重试。'
+                  const updatedMessages = [...this.currentMessages]
+                  updatedMessages[aiMessageIndex].content = '抱歉，发生了错误。请稍后重试。'
+                  this.currentMessages = updatedMessages
                   break
                 } else if (data.done) {
                   // 流结束
-                  this.hideTypingIndicator()
+                  this.isLoading = false
 
                   // 保存或更新聊天记录
                   if (this.isNewChat) {
@@ -209,8 +311,11 @@ export default {
                 } else if (data.token) {
                   // 添加新token到当前AI消息
                   completeResponse += data.token
-                  this.currentMessages[aiMessageIndex].content = completeResponse
-                  this.scrollToBottom()
+
+                  // 创建新的消息数组，更新AI消息内容
+                  const updatedMessages = [...this.currentMessages]
+                  updatedMessages[aiMessageIndex].content = completeResponse
+                  this.currentMessages = updatedMessages
                 }
               } catch (e) {
                 console.error('解析SSE数据出错:', e)
@@ -223,10 +328,12 @@ export default {
           console.log('请求被用户取消')
         } else {
           console.error('发送消息失败:', error)
-          this.currentMessages[aiMessageIndex].content = '抱歉，发生了错误。请稍后重试。'
+          const updatedMessages = [...this.currentMessages]
+          updatedMessages[aiMessageIndex].content = '抱歉，发生了错误。请稍后重试。'
+          this.currentMessages = updatedMessages
         }
       } finally {
-        this.hideTypingIndicator()
+        this.isLoading = false
         this.streamController = null
       }
     },
@@ -258,13 +365,22 @@ export default {
 
         if (Array.isArray(data)) {
           this.chatHistory = data
+          // 初始化显示的历史记录
+          this.displayedHistory = [...this.chatHistory]
+
+          // 如果有搜索关键词，应用搜索过滤
+          if (this.searchKeyword.trim()) {
+            this.searchHistory()
+          }
         } else {
           console.error('获取的历史记录不是数组格式:', data)
           this.chatHistory = []
+          this.displayedHistory = []
         }
       } catch (error) {
         console.error('加载历史记录失败:', error)
         this.chatHistory = []
+        this.displayedHistory = []
       }
     },
 
@@ -463,6 +579,18 @@ export default {
   z-index: 900;
 }
 
+.search-container {
+  margin-bottom: 15px;
+}
+
+.search-container :deep(.t-input) {
+  width: 100%;
+}
+
+.search-container :deep(.t-input__inner) {
+  font-size: 14px;
+}
+
 .history-item {
   padding: 10px;
   margin-bottom: 8px;
@@ -494,19 +622,6 @@ export default {
   margin-top: 5px;
 }
 
-.history-controls button {
-  padding: 3px 8px;
-  font-size: 12px;
-  border: none;
-  border-radius: 3px;
-  cursor: pointer;
-}
-
-.delete-btn {
-  background: #ff4444;
-  color: white;
-}
-
 /* 主内容区样式 */
 .main-content {
   margin-left: 250px;
@@ -520,6 +635,7 @@ export default {
   flex-direction: column;
   padding: 20px;
   box-sizing: border-box;
+  position: relative;
 }
 
 .header {
@@ -538,149 +654,106 @@ export default {
   gap: 15px;
 }
 
-.model-selector {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: #f1f1f1;
-  padding: 5px 10px;
-  border-radius: 4px;
-}
-
-.model-selector label {
-  font-size: 14px;
-  color: #333;
-}
-
-.model-selector select {
-  padding: 4px 8px;
-  border: 1px solid #ddd;
-  border-radius: 3px;
-  background: white;
-  cursor: pointer;
-}
-
 .model-name {
-  font-size: 12px;
+  font-size: 14px;
   color: #666;
-  background: #e3f2fd;
-  padding: 2px 6px;
-  border-radius: 3px;
-}
-
-.new-chat-btn {
-  padding: 8px 16px;
-  background: #2c3e50;
-  color: white;
-  border: none;
+  background: #f0f9ff;
+  padding: 4px 8px;
   border-radius: 4px;
-  cursor: pointer;
 }
 
-.new-chat-btn:hover {
-  background: #34495e;
+/* 聊天组件样式 */
+.chat-wrapper {
+  width: 100%;
+  height: calc(100vh - 120px);
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 20px;
+  overflow: hidden;
+  border-radius: 8px;
+  border: 1px solid #eee;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
 }
 
-.chat-container {
+.chat-messages {
   flex: 1;
   overflow-y: auto;
   padding: 20px;
-  background: white;
-  border-radius: 8px;
-  margin-bottom: 20px;
-  height: calc(100vh - 180px);
+  background-color: #f9f9f9;
 }
 
-.bottom-container {
-  position: fixed;
-  bottom: 20px;
-  left: 470px;
-  right: 20px;
-  background: white;
+/* 设置t-space样式 */
+:deep(.t-space) {
+  width: 100%;
+}
+
+/* 设置t-chat-item样式 */
+:deep(.t-chat-item) {
+  margin-bottom: 16px;
+  width: 100%;
+}
+
+:deep(.t-chat-item__content) {
+  max-width: 80%;
+  word-break: break-word;
+}
+
+:deep(.t-chat-item__avatar) {
+  flex-shrink: 0;
+}
+
+/* 输入框容器样式 */
+.chat-input-container {
+  display: flex;
   padding: 15px;
-  border-radius: 8px;
-  box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
-  z-index: 800;
-}
-
-.status {
-  font-size: 12px;
-  color: #666;
-  margin-bottom: 5px;
-  height: 15px;
-}
-
-.input-container {
-  display: flex;
+  border-top: 1px solid #eee;
   gap: 10px;
+  background-color: #fff;
 }
 
-.user-input {
+.chat-input {
   flex: 1;
-  padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 14px;
-}
-
-.send-btn {
-  padding: 10px 20px;
-  background: #2c3e50;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.send-btn:hover {
-  background: #34495e;
-}
-
-/* 消息样式 */
-.message-container {
-  display: flex;
-  align-items: start;
-  margin-bottom: 15px;
-}
-
-.message-container.user-message-container {
-  flex-direction: row-reverse;
-}
-
-.avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  margin: 0 10px;
-}
-
-.message-bubble {
-  background: #f1f1f1;
-  padding: 10px 15px;
-  border-radius: 8px;
-  max-width: 70%;
-}
-
-.ai-message {
-  background: #e3f2fd;
-}
-
-.user-message {
-  background: #dcf8c6;
 }
 
 /* 响应式设计 */
 @media (max-width: 768px) {
   .history-panel {
     width: 150px;
+    left: 50px; /* 适应折叠后的导航栏宽度 */
   }
 
   .container {
     margin-left: 150px;
   }
 
-  .bottom-container {
-    left: 420px;
+  .main-content {
+    margin-left: 50px; /* 适应折叠后的导航栏宽度 */
+  }
+
+  .header-controls {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .history-panel {
+    width: 100%;
+    left: 0;
+    z-index: 1000;
+    background: rgba(255, 255, 255, 0.95);
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+  }
+
+  .history-panel.visible {
+    transform: translateX(0);
+  }
+
+  .container {
+    margin-left: 0;
+    padding: 10px;
   }
 }
 </style>
