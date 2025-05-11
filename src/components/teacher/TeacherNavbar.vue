@@ -12,9 +12,14 @@
         <i :class="isCollapse ? 'el-icon-s-unfold' : 'el-icon-s-fold'"></i>
       </div>
     </div>
-    
+
+    <!-- 小屏幕下的悬浮展开按钮 -->
+    <div class="mobile-toggle-btn" @click="toggleCollapse" v-if="isMobileView">
+      <i class="el-icon-s-unfold"></i>
+    </div>
+
     <!-- 主导航菜单 -->
-    <el-menu 
+    <el-menu
       class="sidebar-menu"
       background-color="#263445"
       text-color="#e9e9e9"
@@ -24,33 +29,33 @@
       :router="true"
       :default-active="activeIndex"
       unique-opened>
-      
+
       <!-- 常用功能区 -->
       <div class="menu-section">
         <div class="section-title" v-if="!isCollapse">常用功能</div>
-        
+
         <el-menu-item index="/teacher/home" class="menu-item">
           <i class="el-icon-s-home"></i>
           <template #title>首页</template>
         </el-menu-item>
-        
+
         <el-menu-item index="/teacher/answer" class="menu-item">
           <i class="el-icon-chat-line-round"></i>
           <template #title>学生提问</template>
         </el-menu-item>
       </div>
-      
+
       <!-- 教学管理区 -->
       <div class="menu-section">
         <div class="section-title" v-if="!isCollapse">教学管理</div>
-        
 
-        
+
+
         <el-menu-item index="/teacher/grades" class="menu-item">
           <i class="el-icon-s-data"></i>
           <template #title>成绩管理</template>
         </el-menu-item>
-        
+
         <el-menu-item index="/teacher/python" class="menu-item">
           <i class="el-icon-s-management"></i>
           <template #title>数据管理</template>
@@ -61,26 +66,26 @@
           <template #title>出题管理</template>
         </el-menu-item>
       </div>
-      
+
       <!-- 分析工具 -->
       <div class="menu-section">
         <div class="section-title" v-if="!isCollapse">分析工具</div>
-        
+
         <el-menu-item index="/teacher/teaching-analysis" class="menu-item">
           <i class="el-icon-data-analysis"></i>
           <template #title>教学分析</template>
         </el-menu-item>
-        
+
         <el-menu-item index="/teacher/coding-analysis" class="menu-item">
           <i class="el-icon-s-data"></i>
           <template #title>编程数据分析</template>
         </el-menu-item>
-        
+
         <el-menu-item index="/teacher/analysis" class="menu-item">
           <i class="el-icon-s-marketing"></i>
           <template #title>学习行为分析</template>
         </el-menu-item>
-        
+
         <el-submenu index="advanced-analysis" class="menu-item">
           <template #title>
             <i class="el-icon-data-analysis"></i>
@@ -96,26 +101,26 @@
           </el-menu-item>
         </el-submenu>
       </div>
-      
+
       <!-- 系统设置 -->
       <div class="menu-section">
         <div class="section-title" v-if="!isCollapse">系统设置</div>
-        
+
         <el-menu-item index="/permission-management" @click.prevent="showAlert('权限管理')" class="menu-item">
           <i class="el-icon-lock"></i>
           <template #title>权限管理</template>
         </el-menu-item>
-        
+
         <el-menu-item index="/system-settings" @click.prevent="showAlert('系统设置')" class="menu-item">
           <i class="el-icon-setting"></i>
           <template #title>系统设置</template>
         </el-menu-item>
       </div>
-      
+
       <!-- 将退出登录按钮修改为不使用路由导航的方式 -->
       <div class="menu-section logout-section">
         <div class="section-title" v-if="!isCollapse">系统</div>
-        
+
         <el-menu-item index="logout" class="menu-item" @click="logout">
           <i class="el-icon-switch-button"></i>
           <template #title>退出登录</template>
@@ -134,28 +139,33 @@ export default {
       userName: '',
       userIdentifier: '',
       isCollapse: false,
-      activeIndex: '/teacher/home'
+      activeIndex: '/teacher/home',
+      windowWidth: window.innerWidth
     }
   },
   computed: {
     shortIdentifier() {
       if (!this.userIdentifier) return '';
       return this.userIdentifier.substring(0, 8);
+    },
+    // 判断是否为移动视图
+    isMobileView() {
+      return this.windowWidth <= 768;
     }
   },
   created() {
     // 从 sessionStorage 获取用户信息
     this.userEmail = sessionStorage.getItem('userEmail') || '';
     this.userName = sessionStorage.getItem('username') || '';
-    this.userIdentifier = sessionStorage.getItem('userIdentifier') || 
+    this.userIdentifier = sessionStorage.getItem('userIdentifier') ||
                           this.$route.query.uid || '';
-    
+
     // 设置当前激活的导航项
     this.activeIndex = this.$route.path;
-    
+
     // 检查是否需要在小屏幕上默认折叠
     this.checkScreenWidth();
-    
+
     // 监听屏幕尺寸变化
     window.addEventListener('resize', this.checkScreenWidth);
   },
@@ -165,6 +175,7 @@ export default {
   },
   methods: {
     checkScreenWidth() {
+      this.windowWidth = window.innerWidth;
       this.isCollapse = window.innerWidth <= 768;
     },
     toggleCollapse() {
@@ -178,15 +189,15 @@ export default {
     },
     logout() {
       console.log("退出登录");
-      
+
       const userRole = sessionStorage.getItem('userRole') || 'teacher';
-      
+
       // 清除 sessionStorage 中的用户信息
       sessionStorage.removeItem('userEmail');
       sessionStorage.removeItem('username');
       sessionStorage.removeItem('userRole');
       sessionStorage.removeItem('userIdentifier');
-      
+
       this.$router.push({
         path: '/logIn',
         query: { role: userRole }
@@ -284,10 +295,12 @@ export default {
   padding: 5px;
   transition: all 0.3s;
   margin-left: auto;
+  border-radius: 4px;
 }
 
 .toggle-btn:hover {
   color: #ffd04b;
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
 /* 菜单区域 */
@@ -377,19 +390,84 @@ export default {
   margin-left: 5px;
 }
 
+/* 悬浮展开按钮 */
+.mobile-toggle-btn {
+  display: none; /* 默认隐藏 */
+  position: fixed;
+  left: 10px;
+  top: 10px;
+  width: 40px;
+  height: 40px;
+  background-color: #263445;
+  color: white;
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  z-index: 1001;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.mobile-toggle-btn:hover {
+  background-color: #344b66;
+  transform: scale(1.05);
+}
+
+.mobile-toggle-btn i {
+  font-size: 20px;
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
   .sidebar:not(.collapsed) {
     transform: translateX(0);
     width: 250px;
   }
-  
+
   .sidebar.collapsed {
-    width: 0;
+    width: 50px; /* 不完全隐藏，保留一个小的宽度 */
   }
 
   .user-panel {
     justify-content: center;
+  }
+
+  /* 添加悬浮展开按钮 */
+  .sidebar.collapsed .toggle-btn {
+    position: absolute;
+    right: 5px;
+    top: 15px;
+    background-color: #263445;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    z-index: 1000;
+  }
+
+  /* 当导航栏折叠时，确保菜单项图标居中 */
+  .sidebar.collapsed .el-menu-item i {
+    margin: 0 auto;
+  }
+
+  /* 确保内容区域适应折叠的侧边栏 */
+  .main-content {
+    margin-left: 50px;
+  }
+
+  /* 在极小屏幕上显示悬浮按钮 */
+  @media (max-width: 480px) {
+    .sidebar.collapsed {
+      width: 0; /* 在极小屏幕上完全隐藏 */
+    }
+
+    .mobile-toggle-btn {
+      display: flex; /* 显示悬浮按钮 */
+    }
   }
 }
 </style>
