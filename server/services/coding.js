@@ -12,17 +12,32 @@ async function submitCodingData(data) {
   try {
     // 将对象转换为字符串，以便传递给Python
     const dataJsonString = JSON.stringify(data);
-    
+
     // 调用Python脚本存储数据
     const result = await executePythonScript('coding_data.py', [
       'submit_data',
       dataJsonString
     ]);
-    
+
     return result;
   } catch (error) {
     console.error('调用Python脚本失败:', error);
     throw new Error(`处理编程数据失败: ${error.message}`);
+  }
+}
+
+/**
+ * 确保数据表已创建
+ * @returns {Promise} 创建结果
+ */
+async function ensureTablesCreated() {
+  try {
+    // 单独调用创建表的命令
+    await executePythonScript('coding_data.py', ['create_tables']);
+    return true;
+  } catch (error) {
+    console.error('创建数据表失败:', error);
+    return false;
   }
 }
 
@@ -33,11 +48,15 @@ async function submitCodingData(data) {
  */
 async function getStudentCodingStats(studentId) {
   try {
+    // 先确保表已创建
+    await ensureTablesCreated();
+
+    // 然后获取学生统计数据
     const result = await executePythonScript('coding_data.py', [
       'get_student_stats',
       studentId
     ]);
-    
+
     return result;
   } catch (error) {
     console.error('获取学生编程统计失败:', error);
@@ -56,7 +75,7 @@ async function getClassCodingStats(className) {
       'get_class_stats',
       className
     ]);
-    
+
     return result;
   } catch (error) {
     console.error('获取班级统计失败:', error);
@@ -75,7 +94,7 @@ async function getProblemStats(problemId) {
       'get_problem_stats',
       problemId
     ]);
-    
+
     return result;
   } catch (error) {
     console.error('获取题目统计失败:', error);
@@ -85,6 +104,7 @@ async function getProblemStats(problemId) {
 
 module.exports = {
   submitCodingData,
+  ensureTablesCreated,
   getStudentCodingStats,
   getClassCodingStats,
   getProblemStats
