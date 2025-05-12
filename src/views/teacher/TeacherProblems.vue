@@ -75,18 +75,37 @@
             style="width: 300px; margin-right: 10px;"
           ></el-input>
 
-          <el-select v-model="difficultyFilter" placeholder="难度筛选" clearable>
+          <el-select v-model="difficultyFilter" placeholder="难度筛选" clearable style="margin-right: 10px;">
             <el-option label="全部" value=""></el-option>
             <el-option label="简单" value="easy"></el-option>
             <el-option label="中等" value="medium"></el-option>
             <el-option label="困难" value="hard"></el-option>
           </el-select>
 
+          <!-- 添加章节筛选 -->
+          <el-select v-model="chapterFilter" placeholder="章节筛选" clearable style="width: 180px;" filterable>
+            <el-option label="全部章节" value=""></el-option>
+            <el-option
+              v-for="chapter in chapters"
+              :key="chapter.chapter_id"
+              :label="`${chapter.chapter_number} ${chapter.chapter_title}`"
+              :value="chapter.chapter_id">
+            </el-option>
+          </el-select>
+
+          <!-- 批量设置章节按钮 -->
+          <el-button
+            type="primary"
+            icon="el-icon-s-operation"
+            style="margin-left: auto; margin-right: 10px;"
+            @click="showBatchChapterDialog">
+            批量设置章节
+          </el-button>
+
           <!-- 添加查看问题按钮 -->
           <el-button
             type="info"
             icon="el-icon-question"
-            style="margin-left: auto;"
             @click="goToQuestionsList">
             查看题目相关问题
           </el-button>
@@ -100,6 +119,14 @@
               <el-tag :type="getDifficultyTag(scope.row.difficulty)">
                 {{ getDifficultyText(scope.row.difficulty) }}
               </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="chapter_id" label="关联章节" width="180">
+            <template #default="scope">
+              <el-tag v-if="scope.row.chapter_id" type="info">
+                {{ getChapterName(scope.row.chapter_id) }}
+              </el-tag>
+              <span v-else>未关联章节</span>
             </template>
           </el-table-column>
           <el-table-column prop="teacher_email" label="出题教师" width="180"></el-table-column>
@@ -149,6 +176,70 @@
         <el-table-column prop="last_submission" label="最近提交时间"></el-table-column>
       </el-table>
     </el-dialog>
+
+    <!-- 批量设置章节对话框 -->
+    <el-dialog
+      title="批量设置章节关联"
+      v-model="batchChapterDialogVisible"
+      width="50%">
+      <div>
+        <p>选择要设置的章节：</p>
+        <el-select v-model="batchChapterId" placeholder="请选择章节" style="width: 100%" filterable>
+          <el-option
+            v-for="chapter in chapters"
+            :key="chapter.chapter_id"
+            :label="`${chapter.chapter_number} ${chapter.chapter_title}`"
+            :value="chapter.chapter_id">
+          </el-option>
+        </el-select>
+
+        <p style="margin-top: 20px;">选择筛选条件：</p>
+        <el-radio-group v-model="batchFilterType">
+          <el-radio label="all">所有题目</el-radio>
+          <el-radio label="difficulty">按难度筛选</el-radio>
+          <el-radio label="noChapter">未关联章节的题目</el-radio>
+        </el-radio-group>
+
+        <el-select
+          v-if="batchFilterType === 'difficulty'"
+          v-model="batchDifficulty"
+          placeholder="选择难度"
+          style="margin-top: 10px; width: 100%">
+          <el-option label="简单" value="easy"></el-option>
+          <el-option label="中等" value="medium"></el-option>
+          <el-option label="困难" value="hard"></el-option>
+        </el-select>
+
+        <p style="margin-top: 20px;">将更新以下题目：</p>
+        <el-table ref="batchTable" :data="batchFilteredProblems" style="width: 100%" max-height="300px">
+          <el-table-column type="selection" width="55"></el-table-column>
+          <el-table-column prop="title" label="题目名称" min-width="180"></el-table-column>
+          <el-table-column prop="difficulty" label="难度" width="80">
+            <template #default="scope">
+              <el-tag :type="getDifficultyTag(scope.row.difficulty)">
+                {{ getDifficultyText(scope.row.difficulty) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="chapter_id" label="当前章节" width="150">
+            <template #default="scope">
+              <el-tag v-if="scope.row.chapter_id" type="info">
+                {{ getChapterName(scope.row.chapter_id) }}
+              </el-tag>
+              <span v-else>未关联章节</span>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="batchChapterDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="batchUpdateChapter" :loading="batchUpdating">
+            确认更新
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -193,12 +284,20 @@ export default {
       loading: false,
       searchQuery: '',
       difficultyFilter: '',
+      chapterFilter: '',
       // 添加问题对话框相关数据
       questionDialogVisible: false,
       currentProblemId: null,
       submissionsDialogVisible: false,
       submissionStats: [],
       loadingStats: false,
+      // 批量设置章节相关数据
+      batchChapterDialogVisible: false,
+      batchChapterId: '',
+      batchFilterType: 'all',
+      batchDifficulty: 'easy',
+      batchSelectedProblems: [],
+      batchUpdating: false,
     }
   },
   mounted() {
@@ -211,12 +310,29 @@ export default {
         // 难度筛选
         const matchesDifficulty = !this.difficultyFilter || problem.difficulty === this.difficultyFilter;
 
+        // 章节筛选
+        const matchesChapter = !this.chapterFilter || problem.chapter_id === this.chapterFilter;
+
         // 搜索查询
         const matchesSearch = !this.searchQuery ||
           problem.title.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
           problem.content.toLowerCase().includes(this.searchQuery.toLowerCase());
 
-        return matchesDifficulty && matchesSearch;
+        return matchesDifficulty && matchesChapter && matchesSearch;
+      });
+    },
+
+    // 批量设置章节时的筛选题目
+    batchFilteredProblems() {
+      return this.problems.filter(problem => {
+        if (this.batchFilterType === 'all') {
+          return true;
+        } else if (this.batchFilterType === 'difficulty') {
+          return problem.difficulty === this.batchDifficulty;
+        } else if (this.batchFilterType === 'noChapter') {
+          return !problem.chapter_id;
+        }
+        return false;
       });
     }
   },
@@ -474,9 +590,75 @@ export default {
       }
     },
 
+    // 获取章节名称
+    getChapterName(chapterId) {
+      if (!chapterId) return '未关联章节';
+
+      const chapter = this.chapters.find(ch => ch.chapter_id === chapterId);
+      if (chapter) {
+        return `${chapter.chapter_number} ${chapter.chapter_title}`;
+      }
+      return '未知章节';
+    },
+
     // 跳转到问题列表页面
     goToQuestionsList() {
       this.$router.push('/teacher/answer');
+    },
+
+    // 显示批量设置章节对话框
+    showBatchChapterDialog() {
+      this.batchChapterDialogVisible = true;
+      this.batchChapterId = '';
+      this.batchFilterType = 'all';
+      this.batchDifficulty = 'easy';
+      this.batchSelectedProblems = [];
+    },
+
+    // 批量更新章节关联
+    async batchUpdateChapter() {
+      if (!this.batchChapterId) {
+        this.$message.warning('请选择要关联的章节');
+        return;
+      }
+
+      // 获取选中的题目
+      const selectedRows = this.$refs.batchTable.selection;
+      if (!selectedRows || selectedRows.length === 0) {
+        this.$message.warning('请选择要更新的题目');
+        return;
+      }
+
+      this.batchUpdating = true;
+
+      try {
+        // 逐个更新题目的章节关联
+        for (const problem of selectedRows) {
+          await fetch(`/api/problems/${problem.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              title: problem.title,
+              difficulty: problem.difficulty,
+              content: problem.content,
+              inputExample: problem.input_example || '',
+              outputExample: problem.output_example || '',
+              chapterId: this.batchChapterId
+            })
+          });
+        }
+
+        this.$message.success(`成功更新 ${selectedRows.length} 个题目的章节关联`);
+        this.batchChapterDialogVisible = false;
+
+        // 重新加载题目列表
+        this.loadProblems();
+      } catch (error) {
+        console.error('批量更新章节失败:', error);
+        this.$message.error('批量更新章节失败，请查看控制台了解详情');
+      } finally {
+        this.batchUpdating = false;
+      }
     },
 
     // 查看特定题目相关的问题
