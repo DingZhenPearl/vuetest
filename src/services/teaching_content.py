@@ -40,7 +40,7 @@ def create_tables():
     """创建教学内容相关的数据表"""
     conn = get_db_connection()
     cursor = conn.cursor()
-    
+
     try:
         # 创建教学内容表
         cursor.execute("""
@@ -59,7 +59,7 @@ def create_tables():
                 INDEX (chapter_id)
             )
         """)
-        
+
         conn.commit()
         print(json.dumps({
             'success': True,
@@ -78,19 +78,19 @@ def get_all_chapters():
     """获取所有章节内容"""
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-    
+
     try:
         cursor.execute("""
             SELECT * FROM edu_teaching_contents
-            ORDER BY chapter_number
+            ORDER BY CAST(SUBSTRING(chapter_id, 3) AS UNSIGNED)
         """)
-        
+
         chapters = cursor.fetchall()
-        
+
         # 处理JSON字段
         for chapter in chapters:
             chapter['sections'] = json.loads(chapter['sections'])
-        
+
         print(json.dumps({
             'success': True,
             'chapters': chapters
@@ -108,15 +108,15 @@ def get_chapter(chapter_id):
     """获取指定章节内容"""
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-    
+
     try:
         cursor.execute("""
             SELECT * FROM edu_teaching_contents
             WHERE chapter_id = %s
         """, (chapter_id,))
-        
+
         chapter = cursor.fetchone()
-        
+
         if chapter:
             chapter['sections'] = json.loads(chapter['sections'])
             print(json.dumps({
@@ -141,24 +141,24 @@ def add_chapter(data_json_str):
     """添加新章节"""
     try:
         data = json.loads(data_json_str)
-        
+
         conn = get_db_connection()
         cursor = conn.cursor()
-        
+
         try:
             # 检查章节ID是否已存在
             cursor.execute("""
                 SELECT id FROM edu_teaching_contents
                 WHERE chapter_id = %s
             """, (data['chapter_id'],))
-            
+
             if cursor.fetchone():
                 print(json.dumps({
                     'success': False,
                     'message': "章节ID已存在"
                 }))
                 return
-            
+
             # 插入新章节
             cursor.execute("""
                 INSERT INTO edu_teaching_contents (
@@ -176,7 +176,7 @@ def add_chapter(data_json_str):
                 data['chapter_description'],
                 json.dumps(data['sections'])
             ))
-            
+
             conn.commit()
             print(json.dumps({
                 'success': True,
@@ -201,24 +201,24 @@ def update_chapter(data_json_str):
     """更新章节内容"""
     try:
         data = json.loads(data_json_str)
-        
+
         conn = get_db_connection()
         cursor = conn.cursor()
-        
+
         try:
             # 检查章节是否存在
             cursor.execute("""
                 SELECT id FROM edu_teaching_contents
                 WHERE chapter_id = %s
             """, (data['chapter_id'],))
-            
+
             if not cursor.fetchone():
                 print(json.dumps({
                     'success': False,
                     'message': "章节不存在"
                 }))
                 return
-            
+
             # 更新章节
             cursor.execute("""
                 UPDATE edu_teaching_contents SET
@@ -237,7 +237,7 @@ def update_chapter(data_json_str):
                 json.dumps(data['sections']),
                 data['chapter_id']
             ))
-            
+
             conn.commit()
             print(json.dumps({
                 'success': True,
@@ -261,27 +261,27 @@ def delete_chapter(chapter_id):
     """删除章节"""
     conn = get_db_connection()
     cursor = conn.cursor()
-    
+
     try:
         # 检查章节是否存在
         cursor.execute("""
             SELECT id FROM edu_teaching_contents
             WHERE chapter_id = %s
         """, (chapter_id,))
-        
+
         if not cursor.fetchone():
             print(json.dumps({
                 'success': False,
                 'message': "章节不存在"
             }))
             return
-        
+
         # 删除章节
         cursor.execute("""
             DELETE FROM edu_teaching_contents
             WHERE chapter_id = %s
         """, (chapter_id,))
-        
+
         conn.commit()
         print(json.dumps({
             'success': True,
@@ -303,9 +303,9 @@ if __name__ == "__main__":
             'message': "缺少操作参数"
         }))
         sys.exit(1)
-    
+
     operation = sys.argv[1]
-    
+
     if operation == "create_tables":
         create_tables()
     elif operation == "get_all_chapters":
