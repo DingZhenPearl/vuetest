@@ -25,7 +25,7 @@ const teachingContentRoutes = require('./routes/teaching-content'); // 教学内
 
 // 初始化Express应用
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
 // 定义静态文件路径
 const staticRoot = path.resolve(path.join(__dirname, '..', 'dist'));

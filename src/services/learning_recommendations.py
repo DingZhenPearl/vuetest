@@ -42,7 +42,7 @@ def create_tables():
     """创建必要的数据表"""
     conn = get_db_connection()
     cursor = conn.cursor()
-    
+
     try:
         # 创建学习推荐表
         cursor.execute("""
@@ -55,13 +55,15 @@ def create_tables():
                 resources JSON,
                 actionable BOOLEAN DEFAULT FALSE,
                 problem_id VARCHAR(50),
+                chapter_id VARCHAR(50),
                 is_read BOOLEAN DEFAULT FALSE,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 read_at TIMESTAMP NULL,
-                INDEX (student_id)
+                INDEX (student_id),
+                INDEX (chapter_id)
             )
         """)
-        
+
         conn.commit()
         print(json.dumps({
             'success': True,
@@ -80,20 +82,38 @@ def save_recommendations(student_id, recommendations):
     """保存学习推荐到数据库"""
     conn = get_db_connection()
     cursor = conn.cursor()
-    
+
     try:
+        print(f"开始为学生 {student_id} 保存 {len(recommendations)} 条学习推荐...", file=sys.stderr)
+
         # 先删除该学生未读的旧推荐
         cursor.execute("""
             DELETE FROM edu_learning_recommendations
             WHERE student_id = %s AND is_read = FALSE
         """, (student_id,))
-        
+        print(f"已删除学生 {student_id} 的旧推荐", file=sys.stderr)
+
         # 插入新推荐
+        chapter_count = 0
+        problem_count = 0
+
         for rec in recommendations:
+            # 检查是否包含章节ID
+            has_chapter = 'chapterId' in rec and rec['chapterId']
+            has_problem = 'problemId' in rec and rec['problemId']
+
+            if has_chapter:
+                chapter_count += 1
+                print(f"发现章节推荐: {rec['title']} -> 章节ID: {rec['chapterId']}", file=sys.stderr)
+
+            if has_problem:
+                problem_count += 1
+                print(f"发现题目推荐: {rec['title']} -> 题目ID: {rec['problemId']}", file=sys.stderr)
+
             cursor.execute("""
                 INSERT INTO edu_learning_recommendations
-                (student_id, title, description, priority, resources, actionable, problem_id)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                (student_id, title, description, priority, resources, actionable, problem_id, chapter_id)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             """, (
                 student_id,
                 rec['title'],
@@ -101,15 +121,18 @@ def save_recommendations(student_id, recommendations):
                 rec['priority'],
                 json.dumps(rec.get('resources', [])),
                 rec.get('actionable', False),
-                rec.get('problemId')
+                rec.get('problemId'),
+                rec.get('chapterId')
             ))
-        
+
         conn.commit()
+        print(f"推荐保存成功，包含 {chapter_count} 条章节推荐和 {problem_count} 条题目推荐", file=sys.stderr)
         print(json.dumps({
             'success': True,
             'message': "推荐保存成功"
         }))
     except mysql.connector.Error as err:
+        print(f"保存推荐失败: {str(err)}", file=sys.stderr)
         print(json.dumps({
             'success': False,
             'message': f"保存推荐失败: {str(err)}"
@@ -122,11 +145,13 @@ def get_recommendations(student_id):
     """获取学生的学习推荐"""
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-    
+
     try:
+        print(f"开始获取学生 {student_id} 的学习推荐...", file=sys.stderr)
+
         # 获取未读的推荐
         cursor.execute("""
-            SELECT 
+            SELECT
                 id,
                 title,
                 description,
@@ -134,10 +159,11 @@ def get_recommendations(student_id):
                 resources,
                 actionable,
                 problem_id as problemId,
+                chapter_id as chapterId,
                 created_at
             FROM edu_learning_recommendations
             WHERE student_id = %s AND is_read = FALSE
-            ORDER BY 
+            ORDER BY
                 CASE priority
                     WHEN 'high' THEN 1
                     WHEN 'medium' THEN 2
@@ -145,19 +171,31 @@ def get_recommendations(student_id):
                 END,
                 created_at DESC
         """, (student_id,))
-        
+
         recommendations = cursor.fetchall()
-        
+        print(f"查询到 {len(recommendations)} 条推荐", file=sys.stderr)
+
         # 处理JSON字段
         for rec in recommendations:
             if isinstance(rec['resources'], str):
                 rec['resources'] = json.loads(rec['resources'])
-        
+
+        # 统计章节推荐和题目推荐
+        chapter_recs = [rec for rec in recommendations if rec.get('chapterId')]
+        problem_recs = [rec for rec in recommendations if rec.get('problemId')]
+
+        print(f"包含 {len(chapter_recs)} 条章节推荐和 {len(problem_recs)} 条题目推荐", file=sys.stderr)
+
+        # 打印章节推荐详情
+        for rec in chapter_recs:
+            print(f"章节推荐: {rec['title']} -> 章节ID: {rec['chapterId']}", file=sys.stderr)
+
         print(json.dumps({
             'success': True,
             'recommendations': recommendations
         }, cls=CustomJSONEncoder))
     except mysql.connector.Error as err:
+        print(f"获取推荐失败: {str(err)}", file=sys.stderr)
         print(json.dumps({
             'success': False,
             'message': f"获取推荐失败: {str(err)}"
@@ -170,7 +208,7 @@ def mark_as_read(student_id, recommendation_id):
     """标记推荐为已读"""
     conn = get_db_connection()
     cursor = conn.cursor()
-    
+
     try:
         # 更新推荐状态
         cursor.execute("""
@@ -178,14 +216,14 @@ def mark_as_read(student_id, recommendation_id):
             SET is_read = TRUE, read_at = NOW()
             WHERE id = %s AND student_id = %s
         """, (recommendation_id, student_id))
-        
+
         if cursor.rowcount == 0:
             print(json.dumps({
                 'success': False,
                 'message': "未找到指定推荐或无权限修改"
             }))
             return
-        
+
         conn.commit()
         print(json.dumps({
             'success': True,
@@ -208,9 +246,9 @@ def main():
             'message': "参数不足"
         }))
         return
-    
+
     command = sys.argv[1]
-    
+
     if command == 'create_tables':
         create_tables()
     elif command == 'get_recommendations':

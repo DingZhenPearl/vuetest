@@ -230,22 +230,39 @@ export default {
     }
   },
   mounted() {
+    console.log('StudentProgrammingConcepts组件已挂载');
+
     // 从本地存储加载已完成的章节
     const savedCompletedSections = localStorage.getItem('completedSections');
     if (savedCompletedSections) {
       this.completedSections = JSON.parse(savedCompletedSections);
+      console.log(`从本地存储加载了 ${this.completedSections.length} 个已完成的小节`);
+    }
+
+    // 检查URL参数中是否有指定章节
+    const chapterId = this.$route.query.chapter;
+    if (chapterId) {
+      console.log(`检测到URL参数中指定的章节ID: ${chapterId}`);
     }
 
     // 从后端加载章节数据
-    this.loadChapters();
+    this.loadChapters().then(() => {
+      // 检查URL参数中是否有指定章节
+      if (chapterId) {
+        console.log(`章节数据加载完成，准备打开指定章节: ${chapterId}`);
+        this.openChapterFromParam(chapterId);
+      }
+    });
   },
   methods: {
     // 从后端加载章节数据
     async loadChapters() {
+      console.log('开始从后端加载章节数据...');
       this.loading = true;
       try {
         const response = await fetch('/api/teaching-content/chapters');
         const data = await response.json();
+        console.log('收到章节数据响应:', data);
 
         if (data.success) {
           // 将后端数据转换为前端需要的格式
@@ -257,6 +274,13 @@ export default {
             description: chapter.chapter_description,
             sections: chapter.sections
           }));
+
+          console.log(`成功加载 ${this.chapters.length} 个章节`);
+          console.log('章节列表:', this.chapters.map(ch => ({
+            id: ch.id,
+            title: ch.title,
+            sections: ch.sections ? ch.sections.length : 0
+          })));
         } else {
           this.$message.error(data.message || '获取章节数据失败');
           console.error('获取章节数据失败:', data.message);
@@ -357,6 +381,38 @@ export default {
     resetQuiz() {
       if (this.currentSection && this.currentSection.type === 'quiz') {
         this.quizAnswers = new Array(this.currentSection.questions.length).fill(null);
+      }
+    },
+
+    // 根据URL参数打开指定章节
+    openChapterFromParam(chapterId) {
+      console.log(`尝试打开URL参数中指定的章节: ${chapterId}`);
+
+      // 查找对应章节
+      const chapter = this.chapters.find(ch => ch.id === chapterId);
+      if (chapter) {
+        console.log(`找到匹配的章节:`, chapter);
+        // 展开章节
+        this.activeChapters = [chapter.id];
+        console.log(`已设置活动章节为: ${chapter.id}`);
+
+        // 滚动到章节位置
+        this.$nextTick(() => {
+          const chapterElement = document.querySelector(`[aria-controls="${chapter.id}"]`);
+          if (chapterElement) {
+            console.log(`找到章节DOM元素，正在滚动到视图中...`);
+            chapterElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+            // 显示提示信息
+            this.$message.success(`已定位到推荐章节：${chapter.title}`);
+          } else {
+            console.warn(`未找到章节DOM元素: [aria-controls="${chapter.id}"]`);
+          }
+        });
+      } else {
+        console.warn(`未找到匹配的章节: ${chapterId}`);
+        console.log('可用章节列表:', this.chapters.map(ch => ({ id: ch.id, title: ch.title })));
+        this.$message.warning('未找到推荐的章节，请刷新页面重试');
       }
     }
   }

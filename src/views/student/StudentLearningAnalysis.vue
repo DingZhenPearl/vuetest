@@ -13,6 +13,17 @@
       </div>
 
       <div v-else class="analysis-content">
+        <!-- 错误信息显示区域 -->
+        <el-alert
+          v-if="hasError"
+          :title="errorTitle"
+          :description="errorMessage"
+          type="error"
+          show-icon
+          :closable="false"
+          class="error-alert"
+        />
+
         <!-- 顶部统计卡片 -->
         <el-row :gutter="20" class="stats-cards">
           <el-col :xs="24" :sm="12" :md="6" v-for="stat in overallStats" :key="stat.title">
@@ -48,8 +59,9 @@
             <div v-for="(rec, index) in recommendations" :key="index" class="recommendation-item">
               <div class="recommendation-header">
                 <div class="recommendation-title">
-                  <i class="el-icon-star-on"></i>
+                  <i :class="rec.chapterId ? 'el-icon-reading' : 'el-icon-star-on'"></i>
                   <span>{{ rec.title }}</span>
+                  <el-tag v-if="rec.chapterId" size="mini" type="success" class="chapter-tag">章节学习</el-tag>
                 </div>
                 <div class="recommendation-tag" :class="getTagClass(rec.priority)">
                   {{ getPriorityLabel(rec.priority) }}
@@ -149,6 +161,9 @@ export default {
       isLoading: true,
       isLoadingRecommendations: true,
       studentId: '',
+      hasError: false,
+      errorTitle: '',
+      errorMessage: '',
       overallStats: [
         { title: '已完成习题', value: 0, icon: 'el-icon-check' },
         { title: '平均完成率', value: '0%', icon: 'el-icon-data-line' },
@@ -157,6 +172,10 @@ export default {
       ],
       recommendations: [],
       learningBehaviorAnalysis: null,
+      chartData: {
+        progress: null,
+        performance: null
+      },
       charts: {
         progress: null,
         performance: null
@@ -178,66 +197,131 @@ export default {
   methods: {
     async initData() {
       this.isLoading = true
-      
+      // 重置错误状态
+      this.hasError = false
+      this.errorTitle = ''
+      this.errorMessage = ''
+
       // 获取学生ID
       const profile = JSON.parse(sessionStorage.getItem('userProfile') || '{}')
       this.studentId = profile.studentId || ''
-      
+
       if (!this.studentId) {
-        this.$message.error('未找到学生信息，请先完善个人资料')
+        this.showError('未找到学生信息', '请先完善个人资料')
         this.isLoading = false
         return
       }
-      
+
       try {
         // 加载学习数据
         await this.loadLearningData()
-        
+
         // 加载个性化推荐
         await this.loadRecommendations()
-        
+
         // 初始化图表
         this.$nextTick(() => {
           this.initCharts()
         })
       } catch (error) {
         console.error('加载学习分析数据失败:', error)
-        this.$message.error('加载学习分析数据失败')
+        this.showError('加载学习分析数据失败', error.message || '未知错误')
       } finally {
         this.isLoading = false
       }
     },
     async loadLearningData() {
       try {
-        const response = await axios.get(`/api/coding/stats/${encodeURIComponent(this.studentId)}`)
-        const data = response.data
-        
-        if (data.success && data.data) {
-          // 更新统计数据
-          this.updateStats(data.data)
-          
-          // 更新学习行为分析
-          this.updateLearningBehaviorAnalysis(data.data)
+        // 获取编程题目完成状态
+        try {
+          console.log('正在获取学生编程统计数据，学生ID:', this.studentId)
+          const codingResponse = await axios.get(`/api/coding/stats/${encodeURIComponent(this.studentId)}`)
+          const codingData = codingResponse.data
+          console.log('收到编程统计数据:', codingData)
+
+          if (codingData.success && codingData.data) {
+            // 更新统计数据
+            this.updateStats(codingData.data)
+          } else {
+            console.warn('编程统计数据获取失败或为空:', codingData.message || '未知原因')
+            // 显示错误信息
+            this.showError('编程统计数据获取失败', codingData.message || '未知原因')
+            throw new Error(codingData.message || '编程统计数据获取失败')
+          }
+        } catch (codingError) {
+          console.error('获取编程统计数据失败:', codingError)
+          // 显示错误信息
+          this.showError('编程统计数据获取失败', codingError.message || '未知错误')
+          throw codingError
+        }
+
+        // 获取学习行为分析数据
+        try {
+          console.log('正在获取学习行为分析数据，学生ID:', this.studentId)
+          const behaviorResponse = await axios.get(`/api/learning/behavior-analysis/${encodeURIComponent(this.studentId)}`)
+          const behaviorData = behaviorResponse.data
+          console.log('收到学习行为分析数据:', behaviorData)
+
+          if (behaviorData.success && behaviorData.data) {
+            // 更新学习行为分析
+            this.updateLearningBehaviorAnalysis(behaviorData.data)
+
+            // 更新图表数据
+            this.updateChartData(behaviorData.data)
+          } else {
+            console.warn('学习行为分析数据获取失败:', behaviorData.message || '未知原因')
+            // 显示错误信息
+            this.showError('学习行为分析数据获取失败', behaviorData.message || '未知原因')
+            throw new Error(behaviorData.message || '学习行为分析数据获取失败')
+          }
+        } catch (behaviorError) {
+          console.error('获取学习行为分析失败:', behaviorError)
+          // 显示错误信息
+          this.showError('学习行为分析数据获取失败', behaviorError.message || '未知错误')
+          throw behaviorError
         }
       } catch (error) {
         console.error('获取学习数据失败:', error)
+        // 显示错误信息
+        this.showError('获取学习数据失败', error.message || '未知错误')
         throw error
       }
     },
     async loadRecommendations() {
       this.isLoadingRecommendations = true
       try {
+        console.log(`开始为学生 ${this.studentId} 加载个性化学习推荐...`)
         const response = await axios.get(`/api/learning/recommendations/${encodeURIComponent(this.studentId)}`)
         const data = response.data
-        
+        console.log('收到推荐数据:', data)
+
         if (data.success && data.recommendations) {
           this.recommendations = data.recommendations
+          console.log(`成功加载 ${this.recommendations.length} 条推荐`)
+
+          // 统计章节推荐和题目推荐
+          const chapterRecs = this.recommendations.filter(rec => rec.chapterId)
+          const problemRecs = this.recommendations.filter(rec => rec.problemId)
+          console.log(`包含 ${chapterRecs.length} 条章节推荐和 ${problemRecs.length} 条题目推荐`)
+
+          // 打印章节推荐详情
+          if (chapterRecs.length > 0) {
+            console.log('章节推荐详情:')
+            chapterRecs.forEach(rec => {
+              console.log(`- ${rec.title} (章节ID: ${rec.chapterId})`)
+            })
+          }
         } else {
+          console.warn('获取学习推荐失败:', data.message || '未知原因')
+          this.showError('获取学习推荐失败', data.message || '未知原因')
           this.recommendations = []
+          throw new Error(data.message || '获取学习推荐失败')
         }
       } catch (error) {
         console.error('获取学习推荐失败:', error)
+        this.showError('获取学习推荐失败', error.message || '未知错误')
         this.recommendations = []
+        throw error
       } finally {
         this.isLoadingRecommendations = false
       }
@@ -254,8 +338,182 @@ export default {
     },
     updateLearningBehaviorAnalysis(data) {
       // 更新学习行为分析
-      if (data.learning_behavior) {
-        this.learningBehaviorAnalysis = data.learning_behavior
+      console.log('收到学习行为分析数据:', data)
+
+      try {
+        if (data.behavior_analysis) {
+          // 检查是否是默认的空数据
+          if (data.behavior_analysis.pattern === "学习模式分析" &&
+              data.behavior_analysis.strengths.includes("无显著优势领域")) {
+            console.warn('收到默认的空学习行为分析数据')
+            // 显示错误信息
+            this.showError('学习行为分析数据不完整', '系统返回了空的分析结果，请完成更多习题以获取详细分析')
+            // 保存原始数据，不做修改
+            this.learningBehaviorAnalysis = data.behavior_analysis
+          } else {
+            this.learningBehaviorAnalysis = data.behavior_analysis
+            console.log('使用behavior_analysis数据:', this.learningBehaviorAnalysis)
+          }
+        } else if (data.learning_behavior) {
+          // 兼容旧数据结构
+          this.learningBehaviorAnalysis = data.learning_behavior
+          console.log('使用learning_behavior数据:', this.learningBehaviorAnalysis)
+        } else {
+          console.warn('未找到有效的学习行为分析数据')
+          this.showError('学习行为分析数据不完整', '未找到有效的学习行为分析数据')
+          throw new Error('未找到有效的学习行为分析数据')
+        }
+      } catch (error) {
+        console.error('处理学习行为分析数据时出错:', error)
+        this.showError('处理学习行为分析数据时出错', error.message || '未知错误')
+        throw error
+      }
+    },
+
+    updateChartData(data) {
+      // 更新图表数据
+      console.log('更新图表数据:', data)
+      if (!data) {
+        console.warn('图表数据为空')
+        this.showError('图表数据为空', '无法获取学习数据以生成图表')
+        throw new Error('图表数据为空')
+      }
+
+      if (!data.learning_data) {
+        console.warn('学习数据为空')
+        this.showError('学习数据为空', '无法获取学习数据以生成图表')
+        throw new Error('学习数据为空')
+      }
+
+      try {
+        // 检查学习数据是否完整
+        if (!data.learning_data.learning_stats) {
+          console.warn('学习统计数据不完整')
+          this.showError('学习统计数据不完整', '无法获取完整的学习统计数据以生成图表')
+          throw new Error('学习统计数据不完整')
+        }
+
+        if (!data.learning_data.difficulty_stats) {
+          console.warn('难度统计数据不完整')
+          this.showError('难度统计数据不完整', '无法获取完整的难度统计数据以生成图表')
+          throw new Error('难度统计数据不完整')
+        }
+
+        // 存储图表数据以便在初始化图表时使用
+        this.chartData = {
+          progress: this.prepareProgressChartData(data),
+          performance: this.preparePerformanceChartData(data)
+        }
+
+        console.log('准备的图表数据:', this.chartData)
+
+        // 如果图表已经初始化，则立即更新
+        if (this.charts.progress) {
+          console.log('更新进度图表')
+          this.renderProgressChart()
+        }
+
+        if (this.charts.performance) {
+          console.log('更新表现图表')
+          this.renderPerformanceChart()
+        }
+      } catch (error) {
+        console.error('处理图表数据时出错:', error)
+        this.showError('处理图表数据时出错', error.message || '未知错误')
+        throw error
+      }
+    },
+
+    prepareProgressChartData(data) {
+      try {
+        if (!data || !data.learning_data || !data.learning_data.learning_stats) {
+          console.warn('学习统计数据不完整')
+          this.showError('学习统计数据不完整', '无法获取完整的学习统计数据以生成图表')
+          throw new Error('学习统计数据不完整')
+        }
+
+        const learningStats = data.learning_data.learning_stats
+        const totalProblems = learningStats.total_problems || 0
+        const solvedProblems = learningStats.solved_problems || 0
+        const pendingProblems = totalProblems - solvedProblems
+
+        // 如果没有数据，显示错误
+        if (totalProblems === 0) {
+          console.warn('没有题目数据')
+          this.showError('没有题目数据', '您尚未尝试任何题目，无法生成学习进度图表')
+          throw new Error('没有题目数据')
+        }
+
+        return [
+          { value: solvedProblems, name: '已完成' },
+          { value: pendingProblems, name: '未完成' }
+        ]
+      } catch (error) {
+        console.error('准备进度图表数据时出错:', error)
+        this.showError('准备进度图表数据时出错', error.message || '未知错误')
+        throw error
+      }
+    },
+
+    preparePerformanceChartData(data) {
+      try {
+        if (!data || !data.learning_data || !data.learning_data.difficulty_stats) {
+          console.warn('难度统计数据不完整')
+          this.showError('难度统计数据不完整', '无法获取完整的难度统计数据以生成图表')
+          throw new Error('难度统计数据不完整')
+        }
+
+        const difficultyStats = data.learning_data.difficulty_stats
+
+        // 如果没有数据，显示错误
+        if (!difficultyStats || !difficultyStats.length) {
+          console.warn('没有难度统计数据')
+          this.showError('没有难度统计数据', '无法获取难度统计数据以生成图表')
+          throw new Error('没有难度统计数据')
+        }
+
+        // 准备数据
+        const categories = []
+        const timeData = []
+        const attemptsData = []
+
+        // 按难度级别排序
+        const sortOrder = { '简单': 0, '中等': 1, '困难': 2, 'easy': 0, 'medium': 1, 'hard': 2 }
+        const sortedStats = [...difficultyStats].sort((a, b) => {
+          return (sortOrder[a.difficulty] || 0) - (sortOrder[b.difficulty] || 0)
+        })
+
+        sortedStats.forEach(stat => {
+          // 处理可能的英文难度级别
+          let difficulty = stat.difficulty
+          if (difficulty === 'easy') difficulty = '简单'
+          if (difficulty === 'medium') difficulty = '中等'
+          if (difficulty === 'hard') difficulty = '困难'
+
+          categories.push(difficulty)
+          timeData.push(Math.round((stat.avg_time_spent || 0) / 60)) // 转换为分钟
+          attemptsData.push(stat.attempted_problems || 0)
+        })
+
+        return {
+          categories,
+          series: [
+            {
+              name: '平均解题时间(分钟)',
+              type: 'bar',
+              data: timeData
+            },
+            {
+              name: '尝试题目数',
+              type: 'bar',
+              data: attemptsData
+            }
+          ]
+        }
+      } catch (error) {
+        console.error('准备表现图表数据时出错:', error)
+        this.showError('准备表现图表数据时出错', error.message || '未知错误')
+        throw error
       }
     },
     initCharts() {
@@ -264,7 +522,7 @@ export default {
         this.charts.progress = echarts.init(this.$refs.progressChart)
         this.renderProgressChart()
       }
-      
+
       // 初始化表现图表
       if (this.$refs.performanceChart) {
         this.charts.performance = echarts.init(this.$refs.performanceChart)
@@ -272,83 +530,127 @@ export default {
       }
     },
     renderProgressChart() {
-      // 示例数据，实际应从API获取
-      const option = {
-        tooltip: {
-          trigger: 'item'
-        },
-        legend: {
-          orient: 'vertical',
-          left: 'left'
-        },
-        series: [
-          {
-            name: '学习进度',
-            type: 'pie',
-            radius: '50%',
-            data: [
-              { value: 60, name: '已完成' },
-              { value: 40, name: '未完成' }
-            ],
-            emphasis: {
-              itemStyle: {
-                shadowBlur: 10,
-                shadowOffsetX: 0,
-                shadowColor: 'rgba(0, 0, 0, 0.5)'
+      try {
+        if (!this.chartData || !this.chartData.progress) {
+          console.warn('进度图表数据不完整')
+          this.showError('进度图表数据不完整', '无法获取完整的进度图表数据')
+          return
+        }
+
+        const chartData = this.chartData.progress
+
+        const option = {
+          tooltip: {
+            trigger: 'item',
+            formatter: '{a} <br/>{b}: {c} ({d}%)'
+          },
+          legend: {
+            orient: 'vertical',
+            left: 'left',
+            data: chartData.map(item => item.name)
+          },
+          series: [
+            {
+              name: '学习进度',
+              type: 'pie',
+              radius: '50%',
+              data: chartData,
+              emphasis: {
+                itemStyle: {
+                  shadowBlur: 10,
+                  shadowOffsetX: 0,
+                  shadowColor: 'rgba(0, 0, 0, 0.5)'
+                }
               }
             }
-          }
-        ]
+          ]
+        }
+
+        this.charts.progress.setOption(option)
+      } catch (error) {
+        console.error('渲染进度图表时出错:', error)
+        this.showError('渲染进度图表时出错', error.message || '未知错误')
       }
-      
-      this.charts.progress.setOption(option)
     },
     renderPerformanceChart() {
-      // 示例数据，实际应从API获取
-      const option = {
-        tooltip: {
-          trigger: 'axis'
-        },
-        legend: {
-          data: ['解题时间', '尝试次数']
-        },
-        xAxis: {
-          type: 'category',
-          data: ['简单', '中等', '困难']
-        },
-        yAxis: {
-          type: 'value'
-        },
-        series: [
-          {
-            name: '解题时间',
-            type: 'bar',
-            data: [5, 15, 30]
+      try {
+        if (!this.chartData || !this.chartData.performance) {
+          console.warn('表现图表数据不完整')
+          this.showError('表现图表数据不完整', '无法获取完整的表现图表数据')
+          return
+        }
+
+        const chartData = this.chartData.performance
+
+        const option = {
+          tooltip: {
+            trigger: 'axis',
+            axisPointer: {
+              type: 'shadow'
+            }
           },
-          {
-            name: '尝试次数',
-            type: 'bar',
-            data: [1, 3, 5]
-          }
-        ]
+          legend: {
+            data: chartData.series.map(item => item.name)
+          },
+          grid: {
+            left: '3%',
+            right: '4%',
+            bottom: '3%',
+            containLabel: true
+          },
+          xAxis: {
+            type: 'category',
+            data: chartData.categories
+          },
+          yAxis: {
+            type: 'value'
+          },
+          series: chartData.series
+        }
+
+        this.charts.performance.setOption(option)
+      } catch (error) {
+        console.error('渲染表现图表时出错:', error)
+        this.showError('渲染表现图表时出错', error.message || '未知错误')
       }
-      
-      this.charts.performance.setOption(option)
     },
     refreshRecommendations() {
       this.loadRecommendations()
     },
     startLearning(recommendation) {
+      console.log('开始学习推荐内容:', recommendation)
+
       if (recommendation.problemId) {
+        // 如果有题目ID，跳转到习题页面
+        console.log(`跳转到题目: ${recommendation.problemId}`)
         this.$router.push(`/student/exams?problem=${recommendation.problemId}`)
+      } else if (recommendation.chapterId) {
+        // 如果有章节ID，跳转到编程概念页面并打开对应章节
+        console.log(`跳转到章节: ${recommendation.chapterId}`)
+        this.$router.push({
+          path: '/student/programming-concepts',
+          query: { chapter: recommendation.chapterId }
+        })
+        this.$message.success(`正在前往学习${recommendation.title}`)
       } else {
+        console.log('没有找到可跳转的内容')
         this.$message.info('即将开始学习该内容')
       }
     },
-    markAsRead(recommendation, index) {
-      // 实际应调用API标记为已读
-      this.recommendations.splice(index, 1)
-      this.$message.success('已标记为已读')
+    async markAsRead(recommendation, index) {
+      try {
+        // 调用API标记为已读
+        await axios.post(`/api/learning/recommendations/${recommendation.id}/read`, {
+          studentId: this.studentId
+        })
+
+        // 从列表中移除
+        this.recommendations.splice(index, 1)
+        this.$message.success('已标记为已读')
+      } catch (error) {
+        console.error('标记为已读失败:', error)
+        this.$message.error('标记为已读失败，请重试')
+      }
     },
     getTagClass(priority) {
       switch (priority) {
@@ -370,6 +672,15 @@ export default {
       const hours = Math.floor(minutes / 60)
       const mins = minutes % 60
       return `${hours}小时${mins}分钟`
+    },
+
+    // 显示错误信息
+    showError(title, message) {
+      console.error(`${title}: ${message}`)
+      this.$message.error(`${title}: ${message}`)
+      this.hasError = true
+      this.errorTitle = title
+      this.errorMessage = message
     }
   }
 }
@@ -482,6 +793,18 @@ export default {
   margin-right: 5px;
 }
 
+.recommendation-title i.el-icon-reading {
+  color: #409EFF;
+}
+
+.chapter-tag {
+  margin-left: 8px;
+  font-size: 10px;
+  padding: 0 5px;
+  height: 18px;
+  line-height: 16px;
+}
+
 .recommendation-tag {
   padding: 2px 8px;
   border-radius: 4px;
@@ -557,6 +880,10 @@ export default {
 }
 
 .performance-section {
+  margin-bottom: 20px;
+}
+
+.error-alert {
   margin-bottom: 20px;
 }
 </style>

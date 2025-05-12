@@ -8,9 +8,14 @@
 
 import sys
 import json
+import io
 import mysql.connector
 from datetime import datetime, timedelta
 from decimal import Decimal
+
+# 设置标准输出和标准错误的编码为UTF-8
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 # 自定义JSON编码器，处理Decimal和datetime类型
 class CustomJSONEncoder(json.JSONEncoder):
@@ -42,31 +47,31 @@ def get_student_data(student_id):
     """获取学生学习数据"""
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-    
+
     try:
         # 获取学生基本信息
         cursor.execute("""
-            SELECT 
+            SELECT
                 p.student_id,
                 p.name,
                 p.class_name,
                 p.major
-            FROM edu_profiles p
+            FROM edu_profiles_student p
             WHERE p.student_id = %s
         """, (student_id,))
-        
+
         student_info = cursor.fetchone()
-        
+
         if not student_info:
             print(json.dumps({
                 'success': False,
                 'message': f"未找到学生信息: {student_id}"
             }))
             return
-        
+
         # 获取学生编程提交统计
         cursor.execute("""
-            SELECT 
+            SELECT
                 COUNT(*) as total_submissions,
                 SUM(CASE WHEN submit_result = 'success' THEN 1 ELSE 0 END) as successful_submissions,
                 COUNT(DISTINCT problem_id) as total_problems,
@@ -74,12 +79,12 @@ def get_student_data(student_id):
             FROM edu_coding_submissions
             WHERE student_id = %s
         """, (student_id,))
-        
+
         submission_stats = cursor.fetchone()
-        
+
         # 获取学生解题统计
         cursor.execute("""
-            SELECT 
+            SELECT
                 COUNT(*) as total_problems,
                 SUM(CASE WHEN is_solved = 1 THEN 1 ELSE 0 END) as solved_problems,
                 AVG(attempts_until_success) as avg_attempts,
@@ -87,14 +92,14 @@ def get_student_data(student_id):
             FROM edu_problem_solving_stats
             WHERE student_id = %s
         """, (student_id,))
-        
+
         problem_stats = cursor.fetchone()
-        
+
         # 获取学生最近一周的活动
         one_week_ago = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
-        
+
         cursor.execute("""
-            SELECT 
+            SELECT
                 DATE(submission_time) as submission_date,
                 COUNT(*) as submission_count,
                 SUM(CASE WHEN submit_result = 'success' THEN 1 ELSE 0 END) as successful_count
@@ -103,12 +108,12 @@ def get_student_data(student_id):
             GROUP BY DATE(submission_time)
             ORDER BY submission_date
         """, (student_id, one_week_ago))
-        
+
         recent_activity = cursor.fetchall()
-        
+
         # 获取学生按难度分类的解题情况
         cursor.execute("""
-            SELECT 
+            SELECT
                 p.difficulty,
                 COUNT(DISTINCT cs.problem_id) as attempted_problems,
                 SUM(CASE WHEN cs.submit_result = 'success' THEN 1 ELSE 0 END) > 0 as solved_problems
@@ -117,12 +122,12 @@ def get_student_data(student_id):
             WHERE cs.student_id = %s
             GROUP BY p.difficulty
         """, (student_id,))
-        
+
         difficulty_stats = cursor.fetchall()
-        
+
         # 获取学生常见错误类型
         cursor.execute("""
-            SELECT 
+            SELECT
                 SUBSTRING_INDEX(execution_errors, '\n', 1) as error_type,
                 COUNT(*) as occurrence_count
             FROM edu_coding_submissions
@@ -131,14 +136,14 @@ def get_student_data(student_id):
             ORDER BY occurrence_count DESC
             LIMIT 5
         """, (student_id,))
-        
+
         error_patterns = cursor.fetchall()
-        
+
         # 计算学生统计数据
         completed_problems = problem_stats['solved_problems'] if problem_stats['solved_problems'] else 0
         total_problems = problem_stats['total_problems'] if problem_stats['total_problems'] else 0
         completion_rate = (completed_problems / total_problems * 100) if total_problems > 0 else 0
-        
+
         # 构建学生统计数据
         student_stats = {
             'completed_problems': int(completed_problems),
@@ -149,7 +154,7 @@ def get_student_data(student_id):
             'total_learning_time': round(float(problem_stats['avg_time_spent'] * completed_problems / 60) if problem_stats['avg_time_spent'] and completed_problems else 0, 2),
             'pending_problems': int(total_problems - completed_problems)
         }
-        
+
         # 构建结果
         result = {
             'student_info': student_info,
@@ -160,12 +165,12 @@ def get_student_data(student_id):
             'error_patterns': error_patterns,
             'student_stats': student_stats
         }
-        
+
         print(json.dumps({
             'success': True,
             'data': result
         }, cls=CustomJSONEncoder))
-        
+
     except mysql.connector.Error as err:
         print(json.dumps({
             'success': False,
@@ -183,9 +188,9 @@ def main():
             'message': "参数不足"
         }))
         return
-    
+
     command = sys.argv[1]
-    
+
     if command == 'get_student_data':
         student_id = sys.argv[2]
         get_student_data(student_id)
