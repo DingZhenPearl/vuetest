@@ -51,11 +51,6 @@
 
 
 
-        <el-menu-item index="/teacher/grades" class="menu-item">
-          <i class="el-icon-s-data"></i>
-          <template #title>成绩管理</template>
-        </el-menu-item>
-
         <el-menu-item index="/teacher/python" class="menu-item">
           <i class="el-icon-s-management"></i>
           <template #title>数据管理</template>
@@ -64,6 +59,11 @@
         <el-menu-item index="/teacher/problems" class="menu-item">
           <i class="el-icon-edit-outline"></i>
           <template #title>出题管理</template>
+        </el-menu-item>
+
+        <el-menu-item index="/teacher/teaching-contents" class="menu-item">
+          <i class="el-icon-reading"></i>
+          <template #title>教学内容管理</template>
         </el-menu-item>
       </div>
 
@@ -79,41 +79,6 @@
         <el-menu-item index="/teacher/coding-analysis" class="menu-item">
           <i class="el-icon-s-data"></i>
           <template #title>编程数据分析</template>
-        </el-menu-item>
-
-        <el-menu-item index="/teacher/analysis" class="menu-item">
-          <i class="el-icon-s-marketing"></i>
-          <template #title>学习行为分析</template>
-        </el-menu-item>
-
-        <el-submenu index="advanced-analysis" class="menu-item">
-          <template #title>
-            <i class="el-icon-data-analysis"></i>
-            <span>高级分析</span>
-          </template>
-          <el-menu-item index="/data-visualization" @click.prevent="showAlert('数据分析可视化')">
-            <i class="el-icon-pie-chart"></i>
-            <span>数据可视化</span>
-          </el-menu-item>
-          <el-menu-item index="/feedback-report" @click.prevent="showAlert('教学反馈报告')">
-            <i class="el-icon-document"></i>
-            <span>反馈报告</span>
-          </el-menu-item>
-        </el-submenu>
-      </div>
-
-      <!-- 系统设置 -->
-      <div class="menu-section">
-        <div class="section-title" v-if="!isCollapse">系统设置</div>
-
-        <el-menu-item index="/permission-management" @click.prevent="showAlert('权限管理')" class="menu-item">
-          <i class="el-icon-lock"></i>
-          <template #title>权限管理</template>
-        </el-menu-item>
-
-        <el-menu-item index="/system-settings" @click.prevent="showAlert('系统设置')" class="menu-item">
-          <i class="el-icon-setting"></i>
-          <template #title>系统设置</template>
         </el-menu-item>
       </div>
 

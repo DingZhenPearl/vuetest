@@ -13,6 +13,7 @@ import StudentProgrammingConcepts from '../views/student/StudentProgrammingConce
 const TeacherProblems = () => import('../views/teacher/TeacherProblems.vue');
 const TeacherCodingAnalysis = () => import('../views/teacher/TeacherCodingAnalysis.vue'); // 新增
 const TeachingAnalysisView = () => import('../views/teacher/TeachingAnalysisView.vue'); // 添加这行
+const TeacherTeachingContents = () => import('../views/teacher/TeacherTeachingContents.vue'); // 教学内容管理
 
 const routes = [
   {
@@ -84,6 +85,12 @@ const routes = [
     path: '/teacher/teaching-analysis',
     name: 'teachingAnalysis',
     component: TeachingAnalysisView,
+    meta: { requiresAuth: true, role: 'teacher' }
+  },
+  {
+    path: '/teacher/teaching-contents',
+    name: 'teacherTeachingContents',
+    component: TeacherTeachingContents,
     meta: { requiresAuth: true, role: 'teacher' }
   },
 

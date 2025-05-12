@@ -21,6 +21,7 @@ const codingRoutes = require('./routes/coding'); // 添加编程路由
 const teachingRoutes = require('./routes/teaching'); // 新增教学分析路由
 const pluginRoutes = require('./routes/plugin-routes'); // 插件服务路由
 const learningRoutes = require('./routes/learning'); // 学习分析和推荐路由
+const teachingContentRoutes = require('./routes/teaching-content'); // 教学内容管理路由
 
 // 初始化Express应用
 const app = express();
@@ -44,6 +45,7 @@ app.use('/api/coding', codingRoutes); // 添加编程路由
 app.use('/api/teaching', teachingRoutes); // 注册教学分析路由
 app.use('/api/plugin', pluginRoutes); // 注册插件服务路由
 app.use('/api/learning', learningRoutes); // 注册学习分析和推荐路由
+app.use('/api/teaching-content', teachingContentRoutes); // 注册教学内容管理路由
 
 // 基本路由 - 首页
 app.get('/', (req, res) => {

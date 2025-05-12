@@ -5,7 +5,7 @@
       <h1>教师主页</h1>
       <div class="teacher-content">
         <p>欢迎使用教师管理系统</p>
-        
+
         <!-- 顶部统计数据 -->
         <div class="top-stats">
           <div class="stat-card">
@@ -63,7 +63,7 @@
     </div>
   </div>
 </template>
-  
+
 <script>
 import Chart from 'chart.js/auto';
 import TeacherNavbar from '@/components/teacher/TeacherNavbar.vue';
@@ -88,24 +88,24 @@ export default {
       },
       features: [
         {
-          title: '班级管理',
-          description: '管理您的班级和学生名单',
-          route: '/teacher/class'
+          title: '学生提问',
+          description: '查看和回复学生的提问',
+          route: '/teacher/answer'
         },
         {
-          title: '课程安排',
-          description: '查看和编辑您的课程表',
-          route: '/teacher/schedule'
+          title: '数据管理',
+          description: '管理教学相关数据',
+          route: '/teacher/python'
         },
         {
-          title: '成绩录入',
-          description: '为学生录入和修改成绩',
-          route: '/teacher/grades'
+          title: '出题管理',
+          description: '创建和管理编程题目',
+          route: '/teacher/problems'
         },
         {
-          title: '学习行为分析',
-          description: '分析学生的学习行为数据',
-          route: '/teacher/analysis'
+          title: '教学分析',
+          description: '查看教学数据分析',
+          route: '/teacher/teaching-analysis'
         }
       ]
     }
@@ -150,7 +150,7 @@ export default {
   }
 }
 </script>
-  
+
 <style scoped>
 .teacher-home-container {
   display: flex;
@@ -239,11 +239,11 @@ export default {
     margin-left: 0;
     width: 100%;
   }
-  
+
   .top-stats, .bottom-stats {
     flex-direction: column;
   }
-  
+
   .card {
     width: 100%;
   }

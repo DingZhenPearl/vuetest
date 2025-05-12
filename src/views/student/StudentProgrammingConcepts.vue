@@ -8,7 +8,7 @@
       </div>
 
       <!-- 章节导航 -->
-      <el-card class="chapter-navigation">
+      <el-card class="chapter-navigation" v-loading="loading">
         <template #header>
           <div class="card-header">
             <span>学习章节</span>
@@ -23,17 +23,18 @@
               />
               <el-select v-model="difficultyFilter" placeholder="难度" size="small" style="width: 120px;">
                 <el-option label="全部" value="" />
-                <el-option label="入门" value="beginner" />
-                <el-option label="基础" value="basic" />
-                <el-option label="中级" value="intermediate" />
-                <el-option label="高级" value="advanced" />
+                <el-option label="入门" value="入门" />
+                <el-option label="基础" value="基础" />
+                <el-option label="中级" value="中级" />
+                <el-option label="高级" value="高级" />
               </el-select>
             </div>
           </div>
         </template>
 
         <!-- 章节列表 -->
-        <el-collapse v-model="activeChapters" accordion>
+        <el-empty v-if="chapters.length === 0 && !loading" description="暂无章节内容"></el-empty>
+        <el-collapse v-else v-model="activeChapters" accordion>
           <el-collapse-item v-for="chapter in filteredChapters" :key="chapter.id" :name="chapter.id">
             <template #title>
               <div class="chapter-title">
@@ -135,7 +136,9 @@
                 :src="currentSection.videoUrl"
                 frameborder="0"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowfullscreen
+                allowfullscreen="allowfullscreen"
+                sandbox="allow-top-navigation allow-same-origin allow-forms allow-scripts"
+                scrolling="no"
               ></iframe>
             </div>
 
@@ -205,132 +208,8 @@ export default {
       currentSection: null,
       exerciseAnswer: '',
       quizAnswers: [],
-      chapters: [
-        {
-          id: 'ch1',
-          number: '第一章',
-          title: 'C++基础入门',
-          difficulty: '入门',
-          description: '本章介绍C++编程的基础知识，包括变量、数据类型、输入输出等基本概念。',
-          sections: [
-            {
-              id: 'ch1-s1',
-              title: 'C++简介与环境搭建',
-              type: 'theory',
-              duration: 15,
-              content: '<p>C++是一种通用的编程语言，支持多种编程范式，包括过程式、面向对象和泛型编程。</p><p>本节将介绍C++的基本特性以及如何搭建开发环境。</p>',
-              examples: [
-                {
-                  title: '第一个C++程序',
-                  code: '#include <iostream>\n\nint main() {\n    std::cout << "Hello, World!" << std::endl;\n    return 0;\n}',
-                  explanation: '这是一个简单的C++程序，它输出"Hello, World!"到控制台。'
-                }
-              ]
-            },
-            {
-              id: 'ch1-s2',
-              title: '变量与数据类型',
-              type: 'theory',
-              duration: 20,
-              content: '<p>C++中的变量是用于存储数据的命名存储位置。每个变量都有一个特定的数据类型，它决定了变量可以存储的数据类型和大小。</p>',
-              examples: [
-                {
-                  title: '基本数据类型示例',
-                  code: '#include <iostream>\n\nint main() {\n    int age = 25;                 // 整数\n    double salary = 5000.50;      // 浮点数\n    char grade = \'A\';            // 字符\n    bool isEmployed = true;      // 布尔值\n    \n    std::cout << "Age: " << age << std::endl;\n    std::cout << "Salary: " << salary << std::endl;\n    std::cout << "Grade: " << grade << std::endl;\n    std::cout << "Employed: " << isEmployed << std::endl;\n    \n    return 0;\n}',
-                  explanation: '这个例子展示了C++中的基本数据类型：整数(int)、浮点数(double)、字符(char)和布尔值(bool)。'
-                }
-              ]
-            },
-            {
-              id: 'ch1-s3',
-              title: '基本输入输出',
-              type: 'exercise',
-              duration: 25,
-              content: '<p>C++使用iostream库进行基本的输入和输出操作。std::cout用于输出，std::cin用于输入。</p>',
-              task: '编写一个程序，提示用户输入他们的姓名和年龄，然后输出一条包含这些信息的消息。',
-              template: '#include <iostream>\n#include <string>\n\nint main() {\n    // 在这里编写你的代码\n    \n    return 0;\n}'
-            },
-            {
-              id: 'ch1-s4',
-              title: 'C++基础知识测验',
-              type: 'quiz',
-              duration: 10,
-              content: '<p>完成以下测验来测试你对C++基础知识的理解。</p>',
-              questions: [
-                {
-                  text: '哪个头文件用于基本的输入输出操作？',
-                  options: ['<stdio.h>', '<iostream>', '<iomanip>', '<fstream>'],
-                  correctAnswer: 1
-                },
-                {
-                  text: '以下哪个不是C++的基本数据类型？',
-                  options: ['int', 'double', 'string', 'char'],
-                  correctAnswer: 2
-                },
-                {
-                  text: '在C++中，如何声明一个常量？',
-                  options: ['constant int x = 5;', 'const int x = 5;', 'int const x = 5;', 'B和C都正确'],
-                  correctAnswer: 3
-                }
-              ]
-            }
-          ]
-        },
-        {
-          id: 'ch2',
-          number: '第二章',
-          title: '控制流与循环',
-          difficulty: '基础',
-          description: '本章介绍C++中的条件语句、循环结构和控制流程，帮助你编写能够做出决策和重复执行任务的程序。',
-          sections: [
-            {
-              id: 'ch2-s1',
-              title: '条件语句 (if-else)',
-              type: 'theory',
-              duration: 20,
-              content: '<p>条件语句允许程序根据特定条件执行不同的代码块。C++中最基本的条件语句是if-else语句。</p>',
-              examples: [
-                {
-                  title: 'if-else示例',
-                  code: '#include <iostream>\n\nint main() {\n    int age;\n    \n    std::cout << "请输入你的年龄: ";\n    std::cin >> age;\n    \n    if (age >= 18) {\n        std::cout << "你是成年人。" << std::endl;\n    } else {\n        std::cout << "你是未成年人。" << std::endl;\n    }\n    \n    return 0;\n}',
-                  explanation: '这个程序根据用户输入的年龄判断他们是成年人还是未成年人。'
-                }
-              ]
-            },
-            {
-              id: 'ch2-s2',
-              title: '循环结构 (for, while)',
-              type: 'video',
-              duration: 15,
-              videoUrl: 'https://www.example.com/embed/cpp-loops',
-              content: '<p>循环允许程序重复执行代码块。C++提供了几种循环结构，包括for循环和while循环。</p>'
-            }
-          ]
-        },
-        {
-          id: 'ch3',
-          number: '第三章',
-          title: '函数与模块化编程',
-          difficulty: '中级',
-          description: '本章介绍如何使用函数进行模块化编程，提高代码的可重用性和可维护性。',
-          sections: [
-            {
-              id: 'ch3-s1',
-              title: '函数基础',
-              type: 'theory',
-              duration: 25,
-              content: '<p>函数是执行特定任务的代码块。它们帮助组织代码，提高可重用性，并使程序更易于理解和维护。</p>',
-              examples: [
-                {
-                  title: '函数定义与调用',
-                  code: '#include <iostream>\n\n// 函数声明\nint add(int a, int b);\n\nint main() {\n    int result = add(5, 3);\n    std::cout << "5 + 3 = " << result << std::endl;\n    return 0;\n}\n\n// 函数定义\nint add(int a, int b) {\n    return a + b;\n}',
-                  explanation: '这个例子展示了如何定义和调用一个简单的函数，该函数接受两个整数参数并返回它们的和。'
-                }
-              ]
-            }
-          ]
-        }
-      ]
+      loading: false,
+      chapters: []
     }
   },
   computed: {
@@ -356,8 +235,40 @@ export default {
     if (savedCompletedSections) {
       this.completedSections = JSON.parse(savedCompletedSections);
     }
+
+    // 从后端加载章节数据
+    this.loadChapters();
   },
   methods: {
+    // 从后端加载章节数据
+    async loadChapters() {
+      this.loading = true;
+      try {
+        const response = await fetch('/api/teaching-content/chapters');
+        const data = await response.json();
+
+        if (data.success) {
+          // 将后端数据转换为前端需要的格式
+          this.chapters = data.chapters.map(chapter => ({
+            id: chapter.chapter_id,
+            number: chapter.chapter_number,
+            title: chapter.chapter_title,
+            difficulty: chapter.chapter_difficulty,
+            description: chapter.chapter_description,
+            sections: chapter.sections
+          }));
+        } else {
+          this.$message.error(data.message || '获取章节数据失败');
+          console.error('获取章节数据失败:', data.message);
+        }
+      } catch (error) {
+        console.error('获取章节数据失败:', error);
+        this.$message.error('获取章节数据失败，请稍后重试');
+      } finally {
+        this.loading = false;
+      }
+    },
+
     getDifficultyType(difficulty) {
       switch (difficulty.toLowerCase()) {
         case '入门': return 'success';
