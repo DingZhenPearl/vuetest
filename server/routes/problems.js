@@ -22,7 +22,7 @@ router.get('/teacher/:email', async (req, res) => {
       ]
     });
     */
-    
+
     // 取消注释完整实现
     const email = req.params.email;
     const result = await executePythonScript('problem_operations.py', [
@@ -45,16 +45,16 @@ router.get('/all', async (req, res) => {
     const result = await executePythonScript('problem_operations.py', [
       'get_all_problems'
     ]);
-    
+
     // 添加调试日志
     console.log('Python脚本返回的题目列表结果:', result);
-    
+
     // 确保result.problems是一个数组
     if (result.success && !Array.isArray(result.problems)) {
       console.warn('题目列表格式异常，尝试修复');
       result.problems = result.problems ? [result.problems] : [];
     }
-    
+
     res.json(result);
   } catch (error) {
     console.error('获取所有题目列表失败:', error);
@@ -78,9 +78,9 @@ router.post('/submit', async (req, res) => {
       message: "题目提交成功"
     });
     */
-    
+
     // 取消注释完整实现的代码
-    const { email, title, difficulty, content, inputExample, outputExample } = req.body;
+    const { email, title, difficulty, content, inputExample, outputExample, chapterId } = req.body;
     const result = await executePythonScript('problem_operations.py', [
       'submit_problem',
       email,
@@ -88,7 +88,8 @@ router.post('/submit', async (req, res) => {
       difficulty,
       content,
       inputExample || '',  // 处理可能为空的情况
-      outputExample || ''  // 处理可能为空的情况
+      outputExample || '',  // 处理可能为空的情况
+      chapterId || ''  // 处理可能为空的情况
     ]);
     res.json(result);
   } catch (error) {
@@ -109,10 +110,10 @@ router.put('/:id', async (req, res) => {
       message: "题目更新成功"
     });
     */
-    
+
     // 完整实现
     const problemId = req.params.id;
-    const { title, difficulty, content, inputExample, outputExample } = req.body;
+    const { title, difficulty, content, inputExample, outputExample, chapterId } = req.body;
     const result = await executePythonScript('problem_operations.py', [
       'update_problem',
       problemId,
@@ -120,7 +121,8 @@ router.put('/:id', async (req, res) => {
       difficulty,
       content,
       inputExample || '',  // 处理可能为空的情况
-      outputExample || ''  // 处理可能为空的情况
+      outputExample || '',  // 处理可能为空的情况
+      chapterId || ''  // 处理可能为空的情况
     ]);
     res.json(result);
   } catch (error) {
@@ -141,7 +143,7 @@ router.delete('/:id', async (req, res) => {
       message: "题目删除成功"
     });
     */
-    
+
     // 完整实现
     const problemId = req.params.id;
     const result = await executePythonScript('problem_operations.py', [
@@ -182,20 +184,20 @@ router.get('/:id/submissions', async (req, res) => {
 router.post('/validate-cpp', async (req, res) => {
   try {
     const { code, problemId } = req.body;
-    
+
     if (!code || !problemId) {
       return res.status(400).json({
         success: false,
         message: '缺少必要参数'
       });
     }
-    
+
     // 获取题目样例信息
     const problemResult = await executePythonScript('problem_operations.py', [
       'get_problem_detail',
       problemId
     ]);
-    
+
     // 确保题目详情获取成功
     if (!problemResult.success || !problemResult.problem) {
       return res.status(404).json({
@@ -203,12 +205,12 @@ router.post('/validate-cpp', async (req, res) => {
         message: '题目不存在或无法获取题目详情'
       });
     }
-    
+
     const { input_example, output_example } = problemResult.problem;
-    
+
     // 验证代码
     const validationResult = await validateCppCode(code, input_example, output_example);
-    
+
     // 返回验证结果
     res.json(validationResult);
   } catch (error) {

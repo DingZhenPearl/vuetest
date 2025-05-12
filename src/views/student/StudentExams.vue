@@ -21,6 +21,17 @@
           <el-option label="困难" value="hard" />
         </el-select>
 
+        <!-- 添加章节筛选 -->
+        <el-select v-model="chapterFilter" placeholder="章节筛选" clearable style="width: 180px" filterable>
+          <el-option label="全部章节" value="" />
+          <el-option
+            v-for="chapter in chapters"
+            :key="chapter.chapter_id"
+            :label="`${chapter.chapter_number} ${chapter.chapter_title}`"
+            :value="chapter.chapter_id">
+          </el-option>
+        </el-select>
+
         <!-- 添加提问按钮 -->
         <el-button
           type="info"
@@ -60,6 +71,12 @@
             <el-tag :type="getDifficultyTag(scope.row.difficulty)">{{ getDifficultyText(scope.row.difficulty) }}</el-tag>
           </template>
         </el-table-column>
+        <el-table-column prop="chapter_id" label="关联章节" width="180">
+          <template #default="scope">
+            <el-tag v-if="scope.row.chapter_id" type="info">{{ getChapterName(scope.row.chapter_id) }}</el-tag>
+            <span v-else>未关联章节</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="created_at" label="发布时间" width="180">
           <template #default="scope">
             {{ formatDateTime(scope.row.created_at) }}
@@ -93,6 +110,13 @@
           <h3>难度: <el-tag :type="getDifficultyTag(currentProblem?.difficulty)">
             {{ getDifficultyText(currentProblem?.difficulty) }}
           </el-tag></h3>
+
+          <!-- 显示关联章节 -->
+          <h3 v-if="currentProblem?.chapter_id">
+            关联章节: <el-tag type="info">
+              {{ getChapterName(currentProblem.chapter_id) }}
+            </el-tag>
+          </h3>
           <div class="content-box">
             {{ currentProblem?.content }}
           </div>
@@ -156,9 +180,11 @@ export default {
       loading: false,
       searchKeyword: '',
       difficultyFilter: '',
+      chapterFilter: '',
       isSidebarCollapsed: false,
       refreshIcon: 'el-icon-refresh',
       problems: [],
+      chapters: [],
       currentProblem: null,
       dialogVisible: false,
       // 添加问题对话框相关数据
@@ -180,7 +206,10 @@ export default {
         // 筛选难度
         const matchesDifficulty = this.difficultyFilter === '' || problem.difficulty === this.difficultyFilter;
 
-        return matchesKeyword && matchesDifficulty;
+        // 筛选章节
+        const matchesChapter = this.chapterFilter === '' || problem.chapter_id === this.chapterFilter;
+
+        return matchesKeyword && matchesDifficulty && matchesChapter;
       });
     },
     problemStatus() {
@@ -218,6 +247,9 @@ export default {
     window.addEventListener('resize', this.checkSidebarState);
     this.checkSidebarState();
 
+    // 加载章节列表
+    this.loadChapters();
+
     // 加载题目列表（会自动加载题目状态）
     this.loadProblems();
   },
@@ -225,6 +257,22 @@ export default {
     window.removeEventListener('resize', this.checkSidebarState);
   },
   methods: {
+    // 加载章节列表
+    async loadChapters() {
+      try {
+        const response = await fetch('/api/teaching-content/chapters');
+        const data = await response.json();
+
+        if (data.success && Array.isArray(data.chapters)) {
+          this.chapters = data.chapters;
+        } else {
+          console.error('获取章节列表失败:', data);
+        }
+      } catch (error) {
+        console.error('加载章节列表出错:', error);
+      }
+    },
+
     // 加载题目列表
     async loadProblems() {
       this.loading = true;
@@ -540,6 +588,17 @@ export default {
         case 'hard': return '困难';
         default: return '未知';
       }
+    },
+
+    // 获取章节名称
+    getChapterName(chapterId) {
+      if (!chapterId) return '未关联章节';
+
+      const chapter = this.chapters.find(ch => ch.chapter_id === chapterId);
+      if (chapter) {
+        return `${chapter.chapter_number} ${chapter.chapter_title}`;
+      }
+      return '未知章节';
     },
 
     // 获取题目状态

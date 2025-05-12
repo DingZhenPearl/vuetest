@@ -27,7 +27,7 @@ def create_tables():
     """创建必要的数据表"""
     conn = get_db_connection()
     cursor = conn.cursor()
-    
+
     try:
         # 创建问题表
         cursor.execute("""
@@ -39,12 +39,14 @@ def create_tables():
                 content TEXT NOT NULL,
                 input_example TEXT,
                 output_example TEXT,
+                chapter_id VARCHAR(50),
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                INDEX (teacher_email)
+                INDEX (teacher_email),
+                INDEX (chapter_id)
             )
         """)
-        
+
         conn.commit()
     except mysql.connector.Error as err:
         print(json.dumps({
@@ -56,17 +58,17 @@ def create_tables():
         cursor.close()
         conn.close()
 
-def submit_problem(email, title, difficulty, content, input_example, output_example):
+def submit_problem(email, title, difficulty, content, input_example, output_example, chapter_id=None):
     """提交新题目"""
     conn = get_db_connection()
     cursor = conn.cursor()
-    
+
     try:
         cursor.execute("""
-            INSERT INTO edu_problems (teacher_email, title, difficulty, content, input_example, output_example)
-            VALUES (%s, %s, %s, %s, %s, %s)
-        """, (email, title, difficulty, content, input_example, output_example))
-        
+            INSERT INTO edu_problems (teacher_email, title, difficulty, content, input_example, output_example, chapter_id)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """, (email, title, difficulty, content, input_example, output_example, chapter_id))
+
         conn.commit()
         print(json.dumps({
             'success': True,
@@ -85,16 +87,17 @@ def get_teacher_problems(email):
     """获取题目列表(包括其他教师共享的题目)"""
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-    
+
     try:
         cursor.execute("""
-            SELECT 
+            SELECT
                 p.id,
                 p.title,
                 p.difficulty,
                 p.content,
                 p.input_example,
                 p.output_example,
+                p.chapter_id,
                 p.created_at,
                 p.updated_at,
                 p.teacher_email,
@@ -102,14 +105,14 @@ def get_teacher_problems(email):
             FROM edu_problems p
             ORDER BY p.created_at DESC
         """, (email,))
-        
+
         problems = cursor.fetchall()
-        
+
         # 转换时间戳为字符串
         for p in problems:
             p['created_at'] = p['created_at'].strftime('%Y-%m-%d %H:%M:%S')
             p['updated_at'] = p['updated_at'].strftime('%Y-%m-%d %H:%M:%S')
-        
+
         print(json.dumps({
             'success': True,
             'problems': problems
@@ -123,18 +126,18 @@ def get_teacher_problems(email):
         cursor.close()
         conn.close()
 
-def update_problem(problem_id, title, difficulty, content, input_example, output_example):
+def update_problem(problem_id, title, difficulty, content, input_example, output_example, chapter_id=None):
     """更新题目"""
     conn = get_db_connection()
     cursor = conn.cursor()
-    
+
     try:
         cursor.execute("""
-            UPDATE edu_problems 
-            SET title = %s, difficulty = %s, content = %s, input_example = %s, output_example = %s
+            UPDATE edu_problems
+            SET title = %s, difficulty = %s, content = %s, input_example = %s, output_example = %s, chapter_id = %s
             WHERE id = %s
-        """, (title, difficulty, content, input_example, output_example, problem_id))
-        
+        """, (title, difficulty, content, input_example, output_example, chapter_id, problem_id))
+
         conn.commit()
         print(json.dumps({
             'success': True,
@@ -153,12 +156,12 @@ def delete_problem(problem_id):
     """删除题目"""
     conn = get_db_connection()
     cursor = conn.cursor()
-    
+
     try:
         cursor.execute("""
             DELETE FROM edu_problems WHERE id = %s
         """, (problem_id,))
-        
+
         conn.commit()
         print(json.dumps({
             'success': True,
@@ -177,21 +180,21 @@ def get_all_problems():
     """获取所有题目列表，供学生端使用"""
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-    
+
     try:
         cursor.execute("""
-            SELECT id, teacher_email, title, difficulty, content, input_example, output_example, created_at, updated_at
+            SELECT id, teacher_email, title, difficulty, content, input_example, output_example, chapter_id, created_at, updated_at
             FROM edu_problems
             ORDER BY created_at DESC
         """)
-        
+
         problems = cursor.fetchall()
-        
+
         # 转换时间戳为字符串，以便JSON序列化
         for p in problems:
             p['created_at'] = p['created_at'].isoformat()
             p['updated_at'] = p['updated_at'].isoformat()
-        
+
         print(json.dumps({
             'success': True,
             'problems': problems
@@ -209,27 +212,27 @@ def get_problem_detail(problem_id):
     """获取单个题目的详细信息"""
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-    
+
     try:
         cursor.execute("""
-            SELECT id, teacher_email, title, difficulty, content, input_example, output_example, created_at, updated_at
+            SELECT id, teacher_email, title, difficulty, content, input_example, output_example, chapter_id, created_at, updated_at
             FROM edu_problems
             WHERE id = %s
         """, (problem_id,))
-        
+
         problem = cursor.fetchone()
-        
+
         if not problem:
             print(json.dumps({
                 'success': False,
                 'message': "题目不存在"
             }))
             return
-        
+
         # 转换时间戳为字符串，以便JSON序列化
         problem['created_at'] = problem['created_at'].isoformat()
         problem['updated_at'] = problem['updated_at'].isoformat()
-        
+
         print(json.dumps({
             'success': True,
             'problem': problem
@@ -247,10 +250,10 @@ def get_problem_submissions_stats(problem_id):
     """获取题目的答题情况统计"""
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-    
+
     try:
         cursor.execute("""
-            SELECT 
+            SELECT
                 s.student_id,
                 s.student_class,
                 MAX(s.submit_result) as best_result,
@@ -262,16 +265,16 @@ def get_problem_submissions_stats(problem_id):
             GROUP BY s.student_id, s.student_class
             ORDER BY s.student_class, s.student_id
         """, (problem_id,))
-        
+
         submissions = cursor.fetchall()
-        
+
         # 转换时间戳为字符串
         for sub in submissions:
             if sub['first_submission']:
                 sub['first_submission'] = sub['first_submission'].strftime('%Y-%m-%d %H:%M:%S')
             if sub['last_submission']:
                 sub['last_submission'] = sub['last_submission'].strftime('%Y-%m-%d %H:%M:%S')
-        
+
         print(json.dumps({
             'success': True,
             'submissions': submissions
@@ -288,7 +291,7 @@ def get_problem_submissions_stats(problem_id):
 if __name__ == "__main__":
     # 确保数据表存在
     create_tables()
-    
+
     # 获取命令行参数
     if len(sys.argv) < 2:
         print(json.dumps({
@@ -296,19 +299,21 @@ if __name__ == "__main__":
             'message': "缺少操作参数"
         }))
         sys.exit(1)
-    
+
     operation = sys.argv[1]
-    
+
     # 根据操作类型调用相应的函数
     if operation == "submit_problem":
-        if len(sys.argv) != 8:
+        if len(sys.argv) < 8:
             print(json.dumps({
                 'success': False,
                 'message': "参数不足"
             }))
             sys.exit(1)
-        submit_problem(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6], sys.argv[7])
-    
+        # 检查是否提供了章节ID参数
+        chapter_id = sys.argv[8] if len(sys.argv) >= 9 else None
+        submit_problem(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6], sys.argv[7], chapter_id)
+
     elif operation == "get_teacher_problems":
         if len(sys.argv) != 3:
             print(json.dumps({
@@ -317,16 +322,18 @@ if __name__ == "__main__":
             }))
             sys.exit(1)
         get_teacher_problems(sys.argv[2])
-    
+
     elif operation == "update_problem":
-        if len(sys.argv) != 8:
+        if len(sys.argv) < 8:
             print(json.dumps({
                 'success': False,
                 'message': "参数不足"
             }))
             sys.exit(1)
-        update_problem(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6], sys.argv[7])
-    
+        # 检查是否提供了章节ID参数
+        chapter_id = sys.argv[8] if len(sys.argv) >= 9 else None
+        update_problem(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6], sys.argv[7], chapter_id)
+
     elif operation == "delete_problem":
         if len(sys.argv) != 3:
             print(json.dumps({
@@ -335,10 +342,10 @@ if __name__ == "__main__":
             }))
             sys.exit(1)
         delete_problem(sys.argv[2])
-    
+
     elif operation == "get_all_problems":
         get_all_problems()
-    
+
     elif operation == "get_problem_detail":
         if len(sys.argv) != 3:
             print(json.dumps({
@@ -347,7 +354,7 @@ if __name__ == "__main__":
             }))
             sys.exit(1)
         get_problem_detail(sys.argv[2])
-    
+
     elif operation == "get_problem_submissions_stats":
         if len(sys.argv) != 3:
             print(json.dumps({
@@ -356,7 +363,7 @@ if __name__ == "__main__":
             }))
             sys.exit(1)
         get_problem_submissions_stats(sys.argv[2])
-    
+
     else:
         print(json.dumps({
             'success': False,
