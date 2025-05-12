@@ -70,13 +70,9 @@
         <div class="section-title" v-if="!isCollapsed">更多功能</div>
 
         <el-submenu index="learning" class="menu-item">
-          <template v-slot:title>
-            <i class="el-icon-reading"></i>
-            <span>学习资源</span>
-          </template>
           <el-menu-item index="/student/programming-concepts">
             <i class="el-icon-edit-outline"></i>
-            <span>编程概念</span>
+            <span>学习资源</span>
           </el-menu-item>
           <el-menu-item index="/case-analysis" @click.prevent="caseAnalysis">
             <i class="el-icon-document"></i>

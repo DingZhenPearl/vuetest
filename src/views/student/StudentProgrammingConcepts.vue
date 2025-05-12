@@ -3,7 +3,7 @@
     <StudentNavbar />
     <div class="main-content">
       <div class="page-header">
-        <h1>编程概念学习</h1>
+        <h1>学习资源</h1>
         <p class="subtitle">按章节学习C++编程基础知识和进阶概念</p>
       </div>
 
