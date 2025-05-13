@@ -14,7 +14,7 @@ const { getIPAddress } = require('./utils/network');
 const authRoutes = require('./routes/auth');
 const chatRoutes = require('./routes/chat');
 const questionsRoutes = require('./routes/questions');
-const pythonRoutes = require('./routes/python');
+
 const profileRoutes = require('./routes/profile');
 const problemsRoutes = require('./routes/problems'); // 确保此行存在
 const codingRoutes = require('./routes/coding'); // 添加编程路由
@@ -38,7 +38,7 @@ setupMiddlewares(app, staticRoot);
 app.use('/api/auth', authRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/questions', questionsRoutes);
-app.use('/api/python', pythonRoutes);
+
 app.use('/api/profile', profileRoutes);
 app.use('/api/problems', problemsRoutes); // 确保此行存在
 app.use('/api/coding', codingRoutes); // 添加编程路由

@@ -51,10 +51,7 @@
 
 
 
-        <el-menu-item index="/teacher/python" class="menu-item">
-          <i class="el-icon-s-management"></i>
-          <template #title>数据管理</template>
-        </el-menu-item>
+
 
         <el-menu-item index="/teacher/problems" class="menu-item">
           <i class="el-icon-edit-outline"></i>

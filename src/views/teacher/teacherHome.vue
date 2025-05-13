@@ -92,11 +92,7 @@ export default {
           description: '查看和回复学生的提问',
           route: '/teacher/answer'
         },
-        {
-          title: '数据管理',
-          description: '管理教学相关数据',
-          route: '/teacher/python'
-        },
+
         {
           title: '出题管理',
           description: '创建和管理编程题目',
