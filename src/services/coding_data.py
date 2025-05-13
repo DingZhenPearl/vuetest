@@ -377,6 +377,71 @@ def get_problem_stats(problem_id):
         cursor.close()
         conn.close()
 
+def get_students_by_class(class_name):
+    """从编程提交记录中获取班级所有学生"""
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        # 从编程提交记录中获取学生
+        cursor.execute("""
+            SELECT DISTINCT
+                student_id,
+                student_class as class_name
+            FROM edu_coding_submissions
+            WHERE student_class = %s
+        """, (class_name,))
+
+        students_from_submissions = cursor.fetchall()
+
+        # 从解题统计中获取学生
+        cursor.execute("""
+            SELECT DISTINCT
+                s.student_id,
+                MAX(c.student_class) as class_name
+            FROM edu_problem_solving_stats s
+            JOIN edu_coding_submissions c ON s.student_id = c.student_id
+            WHERE c.student_class = %s
+            GROUP BY s.student_id
+        """, (class_name,))
+
+        students_from_stats = cursor.fetchall()
+
+        # 合并两个来源的学生数据
+        all_students = {}
+
+        for student in students_from_submissions:
+            all_students[student['student_id']] = {
+                'student_id': student['student_id'],
+                'class_name': student['class_name'],
+                'name': student['student_id']  # 使用学号作为名称
+            }
+
+        for student in students_from_stats:
+            if student['student_id'] not in all_students:
+                all_students[student['student_id']] = {
+                    'student_id': student['student_id'],
+                    'class_name': student['class_name'],
+                    'name': student['student_id']  # 使用学号作为名称
+                }
+
+        # 转换为列表
+        students_list = list(all_students.values())
+
+        print(json.dumps({
+            'success': True,
+            'students': students_list
+        }, cls=CustomJSONEncoder))
+
+    except mysql.connector.Error as err:
+        print(json.dumps({
+            'success': False,
+            'message': f"获取班级学生失败: {str(err)}"
+        }))
+    finally:
+        cursor.close()
+        conn.close()
+
 if __name__ == "__main__":
     # 解析命令行参数
     if len(sys.argv) < 2:
@@ -396,6 +461,8 @@ if __name__ == "__main__":
         get_class_stats(sys.argv[2])
     elif operation == "get_problem_stats" and len(sys.argv) > 2:
         get_problem_stats(sys.argv[2])
+    elif operation == "get_students_by_class" and len(sys.argv) > 2:
+        get_students_by_class(sys.argv[2])
     elif operation == "create_tables":
         create_tables()
     else:

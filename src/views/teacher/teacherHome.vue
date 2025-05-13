@@ -99,9 +99,9 @@ export default {
           route: '/teacher/problems'
         },
         {
-          title: '教学分析',
-          description: '查看教学数据分析',
-          route: '/teacher/teaching-analysis'
+          title: '教学数据分析',
+          description: '查看教学与编程数据分析',
+          route: '/teacher/data-analysis'
         }
       ]
     }

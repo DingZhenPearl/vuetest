@@ -31,17 +31,17 @@ def analyze_learning_patterns(class_name=None):
     """分析学习模式和趋势"""
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-    
+
     try:
         where_clause = "WHERE 1=1"
         params = []
         if class_name:
             where_clause += " AND cs.student_class = %s"
             params.append(class_name)
-            
+
         # 1. 分析每日提交趋势
         cursor.execute(f"""
-            SELECT 
+            SELECT
                 DATE(submission_time) as date,
                 COUNT(*) as total_submissions,
                 COUNT(DISTINCT student_id) as active_students,
@@ -52,12 +52,12 @@ def analyze_learning_patterns(class_name=None):
             ORDER BY date DESC
             LIMIT 30
         """, params)
-        
+
         daily_trends = cursor.fetchall()
-        
+
         # 2. 分析问题难度分布
         cursor.execute(f"""
-            SELECT 
+            SELECT
                 problem_id,
                 MAX(problem_title) as problem_title,
                 COUNT(*) as attempt_count,
@@ -69,12 +69,12 @@ def analyze_learning_patterns(class_name=None):
             GROUP BY problem_id
             ORDER BY success_rate ASC
         """, params)
-        
+
         problem_difficulty = cursor.fetchall()
-        
+
         # 3. 分析常见错误模式
         cursor.execute(f"""
-            SELECT 
+            SELECT
                 SUBSTRING_INDEX(execution_errors, '\n', 1) as error_type,
                 COUNT(*) as occurrence_count,
                 COUNT(DISTINCT student_id) as affected_students,
@@ -85,12 +85,12 @@ def analyze_learning_patterns(class_name=None):
             ORDER BY occurrence_count DESC
             LIMIT 10
         """, params)
-        
+
         error_patterns = cursor.fetchall()
-        
+
         # 4. 学习进度分布
         cursor.execute(f"""
-            SELECT 
+            SELECT
                 ps.student_id,
                 COUNT(DISTINCT ps.problem_id) as problems_attempted,
                 SUM(ps.is_solved) as problems_solved,
@@ -101,26 +101,26 @@ def analyze_learning_patterns(class_name=None):
             {where_clause}
             GROUP BY ps.student_id
         """, params)
-        
+
         progress_distribution = cursor.fetchall()
-        
+
         # 5. 学习效率分析
         cursor.execute(f"""
-            SELECT 
+            SELECT
                 cs.student_id,
                 COUNT(*) as total_submissions,
                 SUM(CASE WHEN cs.submit_result = 'success' THEN 1 ELSE 0 END) as successful_submissions,
                 AVG(ps.time_spent_seconds) as avg_solving_time,
                 MAX(ps.attempts_until_success) as max_attempts
             FROM edu_coding_submissions cs
-            LEFT JOIN edu_problem_solving_stats ps 
+            LEFT JOIN edu_problem_solving_stats ps
                 ON cs.student_id = ps.student_id AND cs.problem_id = ps.problem_id
             {where_clause}
             GROUP BY cs.student_id
         """, params)
-        
+
         efficiency_analysis = cursor.fetchall()
-        
+
         result = {
             'daily_trends': daily_trends,
             'problem_difficulty': problem_difficulty,
@@ -128,12 +128,12 @@ def analyze_learning_patterns(class_name=None):
             'progress_distribution': progress_distribution,
             'efficiency_analysis': efficiency_analysis
         }
-        
+
         print(json.dumps({
             'success': True,
             'data': result
         }, cls=CustomJSONEncoder))  # 使用自定义编码器
-        
+
     except mysql.connector.Error as err:
         print(json.dumps({
             'success': False,
@@ -147,30 +147,47 @@ def get_class_list():
     """获取所有班级列表"""
     conn = get_db_connection()
     cursor = conn.cursor()
-    
+
     try:
-        # 添加 ORDER BY 以确保稳定的排序
+        # 从edu_coding_submissions表获取班级列表
         cursor.execute("""
             SELECT DISTINCT cs.student_class
             FROM edu_coding_submissions cs
-            WHERE cs.student_class IS NOT NULL 
+            WHERE cs.student_class IS NOT NULL
             AND cs.student_class != ''
             AND cs.student_class != 'null'
-            ORDER BY cs.student_class ASC
         """)
-        
-        rows = cursor.fetchall()
-        if not rows:
+
+        rows_from_submissions = cursor.fetchall()
+        classes_from_submissions = [row[0] for row in rows_from_submissions if row[0]]
+
+        # 从edu_profiles_student表获取班级列表
+        cursor.execute("""
+            SELECT DISTINCT class_name
+            FROM edu_profiles_student
+            WHERE class_name IS NOT NULL
+            AND class_name != ''
+            AND class_name != 'null'
+        """)
+
+        rows_from_profiles = cursor.fetchall()
+        classes_from_profiles = [row[0] for row in rows_from_profiles if row[0]]
+
+        # 合并两个来源的班级列表并去重
+        all_classes = list(set(classes_from_submissions + classes_from_profiles))
+        all_classes.sort()  # 确保稳定的排序
+
+        if not all_classes:
             print(json.dumps({
                 'success': True,
                 'classes': [],
                 'message': '暂无班级数据'
             }))
             return
-            
+
         print(json.dumps({
             'success': True,
-            'classes': [row[0] for row in rows if row[0]],
+            'classes': all_classes,
             'message': '获取班级列表成功'
         }, cls=CustomJSONEncoder))
     except mysql.connector.Error as err:
@@ -184,7 +201,7 @@ def get_class_list():
 
 if __name__ == "__main__":
     operation = sys.argv[1] if len(sys.argv) > 1 else None
-    
+
     if operation == "get_class_list":
         get_class_list()
     elif operation == "analyze_learning_patterns":

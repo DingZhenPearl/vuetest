@@ -27,7 +27,7 @@ def create_tables():
     """创建用户个人信息表"""
     conn = get_db_connection()
     cursor = conn.cursor()
-    
+
     try:
         # 创建学生个人信息表
         cursor.execute("""
@@ -43,7 +43,7 @@ def create_tables():
                 INDEX (email)
             )
         """)
-        
+
         conn.commit()
         return True
     except mysql.connector.Error as err:
@@ -61,18 +61,18 @@ def save_profile(email, student_id, class_name, major, name):
     # 确保表已创建
     if not create_tables():
         return
-        
+
     conn = get_db_connection()
     cursor = conn.cursor()
-    
+
     try:
         # 检查是否已经存在该用户的记录
         cursor.execute("""
             SELECT id FROM edu_profiles_student WHERE email = %s
         """, (email,))
-        
+
         result = cursor.fetchone()
-        
+
         if result:
             # 更新现有记录
             cursor.execute("""
@@ -86,7 +86,7 @@ def save_profile(email, student_id, class_name, major, name):
                 INSERT INTO edu_profiles_student (email, student_id, class_name, major, name)
                 VALUES (%s, %s, %s, %s, %s)
             """, (email, student_id, class_name, major, name))
-        
+
         conn.commit()
         print(json.dumps({
             'success': True,
@@ -106,25 +106,25 @@ def get_profile(email):
     # 确保表已创建
     if not create_tables():
         return
-        
+
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-    
+
     try:
         cursor.execute("""
-            SELECT email, student_id, class_name, major, name, 
+            SELECT email, student_id, class_name, major, name,
                    created_at, updated_at
             FROM edu_profiles_student
             WHERE email = %s
         """, (email,))
-        
+
         profile = cursor.fetchone()
-        
+
         if profile:
             # 转换datetime对象为字符串
             profile['created_at'] = profile['created_at'].isoformat() if profile['created_at'] else None
             profile['updated_at'] = profile['updated_at'].isoformat() if profile['updated_at'] else None
-            
+
             print(json.dumps({
                 'success': True,
                 'profile': profile
@@ -143,6 +143,44 @@ def get_profile(email):
         cursor.close()
         conn.close()
 
+def get_class_students(class_name):
+    """获取班级所有学生"""
+    # 确保表已创建
+    if not create_tables():
+        return
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        cursor.execute("""
+            SELECT student_id, name, class_name, major, email
+            FROM edu_profiles_student
+            WHERE class_name = %s
+        """, (class_name,))
+
+        students = cursor.fetchall()
+
+        # 转换datetime对象为字符串
+        for student in students:
+            if 'created_at' in student and student['created_at']:
+                student['created_at'] = student['created_at'].isoformat()
+            if 'updated_at' in student and student['updated_at']:
+                student['updated_at'] = student['updated_at'].isoformat()
+
+        print(json.dumps({
+            'success': True,
+            'students': students
+        }))
+    except mysql.connector.Error as err:
+        print(json.dumps({
+            'success': False,
+            'message': f"获取班级学生失败: {str(err)}"
+        }))
+    finally:
+        cursor.close()
+        conn.close()
+
 if __name__ == "__main__":
     # 获取命令行参数
     if len(sys.argv) < 2:
@@ -151,9 +189,9 @@ if __name__ == "__main__":
             'message': "缺少操作参数"
         }))
         sys.exit(1)
-    
+
     operation = sys.argv[1]
-    
+
     # 根据操作类型调用相应的函数
     if operation == "save_profile":
         if len(sys.argv) != 7:
@@ -163,7 +201,7 @@ if __name__ == "__main__":
             }))
             sys.exit(1)
         save_profile(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6])
-    
+
     elif operation == "get_profile":
         if len(sys.argv) != 3:
             print(json.dumps({
@@ -172,7 +210,16 @@ if __name__ == "__main__":
             }))
             sys.exit(1)
         get_profile(sys.argv[2])
-    
+
+    elif operation == "get_class_students":
+        if len(sys.argv) != 3:
+            print(json.dumps({
+                'success': False,
+                'message': "参数不足，需要class_name"
+            }))
+            sys.exit(1)
+        get_class_students(sys.argv[2])
+
     else:
         print(json.dumps({
             'success': False,

@@ -68,14 +68,9 @@
       <div class="menu-section">
         <div class="section-title" v-if="!isCollapse">分析工具</div>
 
-        <el-menu-item index="/teacher/teaching-analysis" class="menu-item">
+        <el-menu-item index="/teacher/data-analysis" class="menu-item">
           <i class="el-icon-data-analysis"></i>
-          <template #title>教学分析</template>
-        </el-menu-item>
-
-        <el-menu-item index="/teacher/coding-analysis" class="menu-item">
-          <i class="el-icon-s-data"></i>
-          <template #title>编程数据分析</template>
+          <template #title>教学数据分析</template>
         </el-menu-item>
       </div>
 

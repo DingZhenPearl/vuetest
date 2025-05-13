@@ -16,12 +16,14 @@ const chatRoutes = require('./routes/chat');
 const questionsRoutes = require('./routes/questions');
 
 const profileRoutes = require('./routes/profile');
+const profilesRoutes = require('./routes/profiles'); // 新增个人信息管理路由
 const problemsRoutes = require('./routes/problems'); // 确保此行存在
 const codingRoutes = require('./routes/coding'); // 添加编程路由
 const teachingRoutes = require('./routes/teaching'); // 新增教学分析路由
 const pluginRoutes = require('./routes/plugin-routes'); // 插件服务路由
 const learningRoutes = require('./routes/learning'); // 学习分析和推荐路由
 const teachingContentRoutes = require('./routes/teaching-content'); // 教学内容管理路由
+const aiAnalysisRoutes = require('./routes/ai-analysis'); // AI分析路由
 
 // 初始化Express应用
 const app = express();
@@ -40,12 +42,14 @@ app.use('/api/chat', chatRoutes);
 app.use('/api/questions', questionsRoutes);
 
 app.use('/api/profile', profileRoutes);
+app.use('/api/profiles', profilesRoutes); // 注册个人信息管理路由
 app.use('/api/problems', problemsRoutes); // 确保此行存在
 app.use('/api/coding', codingRoutes); // 添加编程路由
 app.use('/api/teaching', teachingRoutes); // 注册教学分析路由
 app.use('/api/plugin', pluginRoutes); // 注册插件服务路由
 app.use('/api/learning', learningRoutes); // 注册学习分析和推荐路由
 app.use('/api/teaching-content', teachingContentRoutes); // 注册教学内容管理路由
+app.use('/api/teaching', aiAnalysisRoutes); // 注册AI分析路由（挂载在teaching路径下）
 
 // 基本路由 - 首页
 app.get('/', (req, res) => {
