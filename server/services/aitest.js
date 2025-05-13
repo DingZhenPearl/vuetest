@@ -10,16 +10,16 @@ const CONFIG_PATH = path.join(__dirname, '../config/ai_config.json');
 
 // 默认配置
 let aiConfig = {
-    modelType: 'local', // 'local' 或 'api'
+    modelType: 'api', // 'local' 或 'api'
     localModel: {
         apiKey: 'ollama',
         baseURL: 'http://localhost:11434/v1/',
         model: 'qwen3:8b'
     },
     apiModel: {
-        apiKey: 'sk-jvemhtlzzpiaawbmveoqgzohziojbngggfrtvhtxxszyxzzy',
-        baseURL: 'https://api.siliconflow.cn/v1/',
-        model: 'Qwen/Qwen2.5-Coder-7B-Instruct'
+        apiKey: 'ipzotlGevNqQsafvWSXi:cooExiNRkHtQtHkkIqNk',
+        baseURL: 'https://spark-api-open.xf-yun.com/v1/',
+        model: 'lite'
     }
 };
 

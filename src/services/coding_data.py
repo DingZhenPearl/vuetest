@@ -224,6 +224,40 @@ def get_class_stats(class_name):
     cursor = conn.cursor(dictionary=True)
 
     try:
+        # 首先检查是否有该班级的数据
+        cursor.execute("""
+            SELECT COUNT(*) as count
+            FROM edu_coding_submissions
+            WHERE student_class = %s
+        """, (class_name,))
+
+        count_result = cursor.fetchone()
+        has_data = count_result and count_result['count'] > 0
+
+        if not has_data:
+            print(f"警告: 没有找到班级 '{class_name}' 的编程数据", file=sys.stderr)
+
+            # 返回空数据结构
+            result = {
+                'class_name': class_name,
+                'class_stats': {
+                    'total_students': 0,
+                    'total_problems': 0,
+                    'total_submissions': 0,
+                    'successful_submissions': 0,
+                    'success_rate': 0
+                },
+                'problem_stats': [],
+                'student_rankings': []
+            }
+
+            print(json.dumps({
+                'success': True,
+                'data': result,
+                'message': f"没有找到班级 '{class_name}' 的编程数据"
+            }, cls=CustomJSONEncoder))
+            return
+
         # 获取班级总体统计
         cursor.execute("""
             SELECT
@@ -236,7 +270,13 @@ def get_class_stats(class_name):
             WHERE student_class = %s
         """, (class_name,))
 
-        class_stats = cursor.fetchone()
+        class_stats = cursor.fetchone() or {
+            'total_students': 0,
+            'total_problems': 0,
+            'total_submissions': 0,
+            'successful_submissions': 0,
+            'success_rate': 0
+        }
 
         # 获取班级内各题目完成情况
         cursor.execute("""
@@ -253,7 +293,7 @@ def get_class_stats(class_name):
             ORDER BY problem_id
         """, (class_name,))
 
-        problem_stats = cursor.fetchall()
+        problem_stats = cursor.fetchall() or []
 
         # 获取学生排名情况
         cursor.execute("""
@@ -268,7 +308,17 @@ def get_class_stats(class_name):
             ORDER BY solved_problems DESC, success_rate DESC
         """, (class_name,))
 
-        student_rankings = cursor.fetchall()
+        student_rankings = cursor.fetchall() or []
+
+        # 检查是否所有数据都为空
+        all_empty = (
+            class_stats['total_students'] == 0 and
+            len(problem_stats) == 0 and
+            len(student_rankings) == 0
+        )
+
+        if all_empty:
+            print(f"警告: 所有查询都没有返回数据", file=sys.stderr)
 
         result = {
             'class_name': class_name,
@@ -279,7 +329,8 @@ def get_class_stats(class_name):
 
         print(json.dumps({
             'success': True,
-            'data': result
+            'data': result,
+            'message': '获取编程数据成功' if not all_empty else '没有找到有效的编程数据'
         }, cls=CustomJSONEncoder))
 
     except mysql.connector.Error as err:

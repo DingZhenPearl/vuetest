@@ -39,6 +39,35 @@ def analyze_learning_patterns(class_name=None):
             where_clause += " AND cs.student_class = %s"
             params.append(class_name)
 
+        # 首先检查是否有该班级的数据
+        cursor.execute(f"""
+            SELECT COUNT(*) as count
+            FROM edu_coding_submissions cs
+            {where_clause}
+        """, params)
+
+        count_result = cursor.fetchone()
+        has_data = count_result and count_result['count'] > 0
+
+        if not has_data:
+            print(f"警告: 没有找到班级 '{class_name}' 的数据", file=sys.stderr)
+
+            # 返回空数据结构
+            result = {
+                'daily_trends': [],
+                'problem_difficulty': [],
+                'error_patterns': [],
+                'progress_distribution': [],
+                'efficiency_analysis': []
+            }
+
+            print(json.dumps({
+                'success': True,
+                'data': result,
+                'message': f"没有找到班级 '{class_name}' 的数据"
+            }, cls=CustomJSONEncoder))
+            return
+
         # 1. 分析每日提交趋势
         cursor.execute(f"""
             SELECT
@@ -53,7 +82,7 @@ def analyze_learning_patterns(class_name=None):
             LIMIT 30
         """, params)
 
-        daily_trends = cursor.fetchall()
+        daily_trends = cursor.fetchall() or []
 
         # 2. 分析问题难度分布
         cursor.execute(f"""
@@ -70,7 +99,7 @@ def analyze_learning_patterns(class_name=None):
             ORDER BY success_rate ASC
         """, params)
 
-        problem_difficulty = cursor.fetchall()
+        problem_difficulty = cursor.fetchall() or []
 
         # 3. 分析常见错误模式
         cursor.execute(f"""
@@ -86,23 +115,27 @@ def analyze_learning_patterns(class_name=None):
             LIMIT 10
         """, params)
 
-        error_patterns = cursor.fetchall()
+        error_patterns = cursor.fetchall() or []
 
-        # 4. 学习进度分布
-        cursor.execute(f"""
-            SELECT
-                ps.student_id,
-                COUNT(DISTINCT ps.problem_id) as problems_attempted,
-                SUM(ps.is_solved) as problems_solved,
-                AVG(ps.attempts_until_success) as avg_attempts,
-                AVG(ps.time_spent_seconds) as avg_time_spent
-            FROM edu_problem_solving_stats ps
-            JOIN edu_coding_submissions cs ON ps.student_id = cs.student_id
-            {where_clause}
-            GROUP BY ps.student_id
-        """, params)
+        # 4. 学习进度分布 - 修改查询以处理没有匹配记录的情况
+        try:
+            cursor.execute(f"""
+                SELECT
+                    ps.student_id,
+                    COUNT(DISTINCT ps.problem_id) as problems_attempted,
+                    SUM(ps.is_solved) as problems_solved,
+                    AVG(ps.attempts_until_success) as avg_attempts,
+                    AVG(ps.time_spent_seconds) as avg_time_spent
+                FROM edu_problem_solving_stats ps
+                JOIN edu_coding_submissions cs ON ps.student_id = cs.student_id
+                {where_clause}
+                GROUP BY ps.student_id
+            """, params)
 
-        progress_distribution = cursor.fetchall()
+            progress_distribution = cursor.fetchall() or []
+        except mysql.connector.Error as err:
+            print(f"获取学习进度分布失败: {str(err)}", file=sys.stderr)
+            progress_distribution = []
 
         # 5. 学习效率分析
         cursor.execute(f"""
@@ -119,7 +152,19 @@ def analyze_learning_patterns(class_name=None):
             GROUP BY cs.student_id
         """, params)
 
-        efficiency_analysis = cursor.fetchall()
+        efficiency_analysis = cursor.fetchall() or []
+
+        # 检查是否所有数据都为空
+        all_empty = (
+            len(daily_trends) == 0 and
+            len(problem_difficulty) == 0 and
+            len(error_patterns) == 0 and
+            len(progress_distribution) == 0 and
+            len(efficiency_analysis) == 0
+        )
+
+        if all_empty:
+            print(f"警告: 所有查询都没有返回数据", file=sys.stderr)
 
         result = {
             'daily_trends': daily_trends,
@@ -131,7 +176,8 @@ def analyze_learning_patterns(class_name=None):
 
         print(json.dumps({
             'success': True,
-            'data': result
+            'data': result,
+            'message': '获取学习数据成功' if not all_empty else '没有找到有效的学习数据'
         }, cls=CustomJSONEncoder))  # 使用自定义编码器
 
     except mysql.connector.Error as err:

@@ -1302,18 +1302,86 @@ export default {
         }
 
         console.log('正在进行AI分析...');
+        console.log('分析数据:', this.analysisData);
+
+        // 检查数据是否完整
+        if (!this.analysisData.daily_trends || !this.analysisData.problem_difficulty ||
+            !this.analysisData.error_patterns || !this.analysisData.progress_distribution ||
+            !this.analysisData.efficiency_analysis) {
+          console.warn('分析数据不完整，尝试重新加载数据');
+
+          // 尝试重新加载教学数据
+          try {
+            await this.loadTeachingData();
+          } catch (error) {
+            console.error('重新加载教学数据失败:', error);
+          }
+
+          // 尝试重新加载编程数据
+          try {
+            await this.loadCodingData();
+          } catch (error) {
+            console.error('重新加载编程数据失败:', error);
+          }
+
+          // 再次检查数据是否完整
+          if (!this.analysisData || !this.analysisData.daily_trends) {
+            this.$message.error('分析数据不完整，无法进行AI分析');
+            this.aiLoading = false;
+            return;
+          }
+        }
+
+        // 构建正确的数据结构
+        const analysisData = {
+          teaching: {
+            daily_trends: this.analysisData.daily_trends || [],
+            problem_difficulty: this.analysisData.problem_difficulty || [],
+            error_patterns: this.analysisData.error_patterns || [],
+            progress_distribution: this.analysisData.progress_distribution || [],
+            efficiency_analysis: this.analysisData.efficiency_analysis || []
+          },
+          coding: this.analysisData.coding_data || {
+            class_stats: {},
+            student_rankings: [],
+            problem_stats: []
+          },
+          className: this.selectedClass
+        };
+
+        console.log('发送到AI分析的数据结构:', analysisData);
 
         // 调用AI分析API
         const response = await axios.post('/api/teaching/ai-analysis', {
           analysisType: 'combined',
           className: this.selectedClass,
-          data: this.analysisData
+          data: analysisData
         });
 
         console.log('AI分析响应:', response.data);
 
         if (response.data.success) {
           this.aiAnalysisResult = response.data.analysis;
+
+          // 检查分析结果是否有效
+          if (this.aiAnalysisResult) {
+            console.log('AI分析结果类型:', typeof this.aiAnalysisResult.summary, typeof this.aiAnalysisResult.strengths);
+
+            // 检查summary是否为字符串并包含"数据缺失"
+            const summaryHasDataMissing = typeof this.aiAnalysisResult.summary === 'string' &&
+                                         this.aiAnalysisResult.summary.includes('数据缺失');
+
+            // 检查strengths是否为数组，且第一个元素是字符串并包含"数据缺失"
+            const strengthsHasDataMissing = Array.isArray(this.aiAnalysisResult.strengths) &&
+                                           this.aiAnalysisResult.strengths.length > 0 &&
+                                           typeof this.aiAnalysisResult.strengths[0] === 'string' &&
+                                           this.aiAnalysisResult.strengths[0].includes('数据缺失');
+
+            if (summaryHasDataMissing || strengthsHasDataMissing) {
+              console.warn('AI分析结果显示数据缺失');
+              this.$message.warning('AI分析结果显示数据缺失，请确保数据库中有足够的学生数据');
+            }
+          }
         } else {
           const errorMsg = response.data.message || 'AI分析失败';
           console.error(errorMsg);

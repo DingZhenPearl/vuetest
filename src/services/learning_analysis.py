@@ -200,8 +200,8 @@ def analyze_with_ai(learning_data):
     try:
         # 检查学习数据是否有效
         if not learning_data or not learning_data.get('learning_stats'):
-            print(f"学习数据不完整，使用默认分析", file=sys.stderr)
-            return get_default_analysis()
+            print(f"学习数据不完整", file=sys.stderr)
+            raise Exception("学习数据不完整，无法进行AI分析")
 
         # 创建OpenAI客户端
         print(f"创建AI客户端...", file=sys.stderr)
@@ -212,7 +212,7 @@ def analyze_with_ai(learning_data):
             )
         except Exception as e:
             print(f"创建AI客户端失败: {str(e)}", file=sys.stderr)
-            return get_default_analysis()
+            raise Exception(f"创建AI客户端失败: {str(e)}")
 
         # 构建提示词
         print(f"构建AI提示词...", file=sys.stderr)
@@ -265,23 +265,16 @@ def analyze_with_ai(learning_data):
             except json.JSONDecodeError as je:
                 print(f"解析AI响应JSON失败: {str(je)}", file=sys.stderr)
                 print(f"AI响应内容: {ai_response}", file=sys.stderr)
-                return get_default_analysis()
+                raise Exception(f"解析AI响应JSON失败: {str(je)}")
         except Exception as api_err:
             print(f"调用AI接口失败: {str(api_err)}", file=sys.stderr)
-            return get_default_analysis()
+            raise Exception(f"调用AI接口失败: {str(api_err)}")
 
     except Exception as e:
         print(f"AI分析过程中发生未预期错误: {str(e)}", file=sys.stderr)
-        return get_default_analysis()
+        raise Exception(f"AI分析过程中发生错误: {str(e)}")
 
-def get_default_analysis():
-    """获取默认分析（当AI分析失败时使用）"""
-    return {
-        "pattern": "您的学习模式显示出一定的规律性，但可能需要更加系统化的学习计划。",
-        "strengths": "您在解决简单和中等难度的问题上表现较好，能够坚持完成任务。",
-        "weaknesses": "在处理复杂问题时可能需要更多的时间和尝试，错误处理能力有待提高。",
-        "suggestions": "建议制定更有规律的学习计划，每天固定时间学习。针对常见错误类型进行专项练习，提高解决复杂问题的能力。多参考优秀解答，学习不同的解题思路。"
-    }
+
 
 def main():
     """主函数"""

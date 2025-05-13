@@ -6,8 +6,8 @@
     "model": "qwen3:8b"
   },
   "apiModel": {
-    "apiKey": "sk-jvemhtlzzpiaawbmveoqgzohziojbngggfrtvhtxxszyxzzy",
-    "baseURL": "https://api.siliconflow.cn/v1/",
-    "model": "Qwen/Qwen2.5-Coder-7B-Instruct"
+    "apiKey": "ipzotlGevNqQsafvWSXi:cooExiNRkHtQtHkkIqNk",
+    "baseURL": "https://spark-api-open.xf-yun.com/v1/",
+    "model": "lite"
   }
 }
