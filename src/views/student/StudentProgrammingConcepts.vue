@@ -245,6 +245,15 @@ export default {
       console.log(`检测到URL参数中指定的章节ID: ${chapterId}`);
     }
 
+    // 获取学生ID
+    const profile = JSON.parse(sessionStorage.getItem('userProfile') || '{}');
+    const studentId = profile.studentId;
+
+    if (studentId) {
+      // 从数据库加载已完成的小节
+      this.loadCompletedSectionsFromDatabase(studentId);
+    }
+
     // 从后端加载章节数据
     this.loadChapters().then(() => {
       // 检查URL参数中是否有指定章节
@@ -253,6 +262,11 @@ export default {
         this.openChapterFromParam(chapterId);
       }
     });
+
+    // 如果有本地存储的进度但没有登录，提示用户
+    if (savedCompletedSections && !studentId) {
+      this.$message.warning('您尚未登录或未设置学生信息，学习进度仅保存在本地，登录后可同步到云端');
+    }
   },
   methods: {
     // 从后端加载章节数据
@@ -341,11 +355,54 @@ export default {
     },
     markAsCompleted() {
       if (this.currentSection && !this.isCompleted(this.currentSection.id)) {
+        // 添加到本地数组
         this.completedSections.push(this.currentSection.id);
         localStorage.setItem('completedSections', JSON.stringify(this.completedSections));
+
+        // 同时保存到数据库
+        this.saveSectionProgressToDatabase(this.currentSection.id);
+
         this.$message.success('已标记为已完成！');
       }
       this.closeSectionDialog();
+    },
+
+    // 保存学习进度到数据库
+    async saveSectionProgressToDatabase(sectionId) {
+      try {
+        // 获取学生ID
+        const profile = JSON.parse(sessionStorage.getItem('userProfile') || '{}');
+        const studentId = profile.studentId;
+
+        if (!studentId) {
+          console.error('无法获取学生ID，进度仅保存在本地');
+          return;
+        }
+
+        console.log(`正在保存学习进度到数据库，学生ID: ${studentId}, 小节ID: ${sectionId}`);
+
+        // 调用API保存进度
+        const response = await fetch(`/api/learning/section-progress/save/${studentId}/${sectionId}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        const data = await response.json();
+
+        if (!data.success) {
+          console.error('保存学习进度到数据库失败:', data.message);
+          if (data.error) {
+            console.error('错误详情:', data.error);
+          }
+        } else {
+          console.log('学习进度已同步到数据库');
+        }
+      } catch (error) {
+        console.error('保存学习进度到数据库失败:', error);
+        console.error('错误详情:', error.stack || error);
+      }
     },
     submitExercise() {
       // 这里可以添加代码验证逻辑
@@ -381,6 +438,76 @@ export default {
     resetQuiz() {
       if (this.currentSection && this.currentSection.type === 'quiz') {
         this.quizAnswers = new Array(this.currentSection.questions.length).fill(null);
+      }
+    },
+
+    // 从数据库加载已完成的小节
+    async loadCompletedSectionsFromDatabase(studentId) {
+      try {
+        console.log('从数据库加载已完成的小节...');
+        const response = await fetch(`/api/learning/section-progress/completed/${studentId}`);
+        const data = await response.json();
+
+        if (data.success && data.sections) {
+          // 获取小节ID列表
+          const dbCompletedSections = data.sections.map(section => section.section_id);
+          console.log(`从数据库加载了 ${dbCompletedSections.length} 个已完成的小节`);
+
+          // 合并本地和数据库的进度
+          const localSections = new Set(this.completedSections);
+          const dbSections = new Set(dbCompletedSections);
+
+          // 合并两个集合
+          const mergedSections = [...new Set([...localSections, ...dbSections])];
+
+          // 更新本地数组和存储
+          this.completedSections = mergedSections;
+          localStorage.setItem('completedSections', JSON.stringify(mergedSections));
+
+          // 如果有新增的本地进度，同步到数据库
+          const newLocalSections = [...localSections].filter(id => !dbSections.has(id));
+          if (newLocalSections.length > 0) {
+            console.log(`发现 ${newLocalSections.length} 个本地进度需要同步到数据库`);
+            this.syncLocalProgressToDatabase(studentId, newLocalSections);
+          }
+        } else {
+          console.warn('从数据库加载已完成小节失败:', data.message || '未知错误');
+          if (data.error) {
+            console.warn('错误详情:', data.error);
+          }
+        }
+      } catch (error) {
+        console.error('从数据库加载已完成小节失败:', error);
+        console.error('错误详情:', error.stack || error);
+      }
+    },
+
+    // 同步本地进度到数据库
+    async syncLocalProgressToDatabase(studentId, sectionIds) {
+      try {
+        console.log(`正在同步本地进度到数据库，学生ID: ${studentId}, 小节数: ${sectionIds.length}`);
+
+        const response = await fetch(`/api/learning/section-progress/import/${studentId}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ section_ids: sectionIds })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          console.log(`成功同步 ${sectionIds.length} 个本地进度到数据库`);
+        } else {
+          console.warn('同步本地进度到数据库失败:', data.message || '未知错误');
+          if (data.error) {
+            console.warn('错误详情:', data.error);
+          }
+        }
+      } catch (error) {
+        console.error('同步本地进度到数据库失败:', error);
+        console.error('错误详情:', error.stack || error);
       }
     },
 

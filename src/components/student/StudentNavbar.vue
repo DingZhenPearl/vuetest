@@ -171,6 +171,10 @@ export default {
 
       const userRole = sessionStorage.getItem('userRole') || 'student';
 
+      // 获取学生ID，用于清除缓存
+      const studentId = sessionStorage.getItem('userProfile') ?
+        JSON.parse(sessionStorage.getItem('userProfile')).studentId : '';
+
       // 清除 sessionStorage 中的所有用户信息
       sessionStorage.removeItem('userEmail');
       sessionStorage.removeItem('username');
@@ -178,6 +182,27 @@ export default {
       sessionStorage.removeItem('userIdentifier');
       // 确保清除个人信息缓存
       sessionStorage.removeItem('userProfile');
+
+      // 使用全局方法清除缓存数据
+      try {
+        if (studentId && this.$clearCache) {
+          this.$clearCache(studentId);
+        } else {
+          // 如果全局方法不可用，则直接清除
+          if (studentId) {
+            localStorage.removeItem(`recommendations_${studentId}`);
+            localStorage.removeItem(`progress_data_${studentId}`);
+            localStorage.removeItem(`activities_${studentId}`);
+            localStorage.removeItem(`user_stats_${studentId}`);
+            console.log('已清除所有缓存数据');
+          }
+        }
+
+        // 清除其他可能的缓存
+        localStorage.removeItem('lastVisitedPage');
+      } catch (error) {
+        console.error('清除缓存数据失败:', error);
+      }
 
       this.$router.push({
         path: '/logIn',
