@@ -130,18 +130,14 @@ def get_student_progress(student_id):
         cursor = conn.cursor(dictionary=True)
 
         try:
-            # 获取所有章节及其小节
+            # 获取所有章节
             cursor.execute("""
                 SELECT
-                    c.chapter_id,
-                    c.chapter_title,
-                    c.id as chapter_db_id,
-                    s.id as section_id,
-                    s.title as section_title,
-                    s.type as section_type
-                FROM edu_teaching_contents c
-                LEFT JOIN edu_teaching_sections s ON c.chapter_id = s.chapter_id
-                ORDER BY c.id, s.id
+                    chapter_id,
+                    chapter_title,
+                    id as chapter_db_id
+                FROM edu_teaching_contents
+                ORDER BY id
             """)
 
             results = cursor.fetchall()
@@ -151,37 +147,39 @@ def get_student_progress(student_id):
                 chapters = []
                 print(f"警告: 未找到任何章节数据", file=sys.stderr)
             else:
-                # 处理章节和小节数据
-                chapters_dict = {}
+                # 处理章节数据
+                chapters = []
 
                 for row in results:
                     chapter_id = row['chapter_id']
 
-                    # 如果这是一个新章节，初始化它
-                    if chapter_id not in chapters_dict:
-                        chapters_dict[chapter_id] = {
-                            'chapter_id': chapter_id,
-                            'chapter_title': row['chapter_title'],
-                            'sections': [],
-                            'total_sections': 0,
-                            'completed_sections': 0
-                        }
-
-                    # 添加小节
-                    if row['section_id']:
-                        chapters_dict[chapter_id]['sections'].append({
-                            'id': row['section_id'],
-                            'title': row['section_title'],
-                            'type': row['section_type']
+                    # 为每个章节创建6个默认小节
+                    sections = []
+                    for i in range(1, 7):
+                        section_id = f"{chapter_id}-s{i}"
+                        sections.append({
+                            'id': section_id,
+                            'title': f"小节 {i}",
+                            'type': 'video'
                         })
-                        chapters_dict[chapter_id]['total_sections'] += 1
 
-                # 转换为列表
-                chapters = list(chapters_dict.values())
+                    # 创建章节对象
+                    chapter = {
+                        'chapter_id': chapter_id,
+                        'chapter_title': row['chapter_title'],
+                        'sections': sections,
+                        'total_sections': 6,  # 每个章节默认6个小节
+                        'completed_sections': 0
+                    }
+
+                    chapters.append(chapter)
+
+                print(f"处理了 {len(chapters)} 个章节，每个章节默认6个小节", file=sys.stderr)
 
                 # 获取已完成的小节
                 try:
                     # 查询学生的已完成小节记录
+                    print(f"正在查询学生ID为 {student_id} 的已完成小节记录...", file=sys.stderr)
                     cursor.execute("""
                         SELECT section_id
                         FROM edu_section_progress
@@ -190,6 +188,8 @@ def get_student_progress(student_id):
 
                     completed_sections_results = cursor.fetchall()
                     completed_sections = [row['section_id'] for row in completed_sections_results]
+                    print(f"学生ID为 {student_id} 的已完成小节数量: {len(completed_sections)}", file=sys.stderr)
+                    print(f"已完成小节ID列表: {completed_sections}", file=sys.stderr)
 
                     # 计算每个章节的完成率
                     for chapter in chapters:

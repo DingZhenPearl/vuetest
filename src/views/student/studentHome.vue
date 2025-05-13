@@ -233,15 +233,22 @@ export default {
         if (this.hasProfileInfo) {
           console.log('用户已设置个人信息，学生ID:', this.studentId);
 
-          // 清除旧的进度数据缓存，确保获取最新数据
+          // 清除所有缓存数据，确保获取最新数据
           try {
             localStorage.removeItem(`progress_data_${this.studentId}`);
-            console.log('已清除旧的进度数据缓存');
+            localStorage.removeItem(`recommendations_${this.studentId}`);
+            localStorage.removeItem(`activities_${this.studentId}`);
+            localStorage.removeItem(`user_stats_${this.studentId}`);
+            console.log('已清除所有缓存数据，确保获取最新数据');
           } catch (e) {
             console.error('清除缓存失败:', e);
           }
 
-          // 并行执行其他数据获取任务
+          // 先获取学习进度数据，确保图表显示正确
+          console.log('开始获取学习进度数据...');
+          await this.updateProgressDataCache(false);
+
+          // 然后并行执行其他数据获取任务
           await Promise.all([
             this.fetchUserStats(),
             this.fetchRecommendations(),
@@ -600,21 +607,34 @@ export default {
 
     // 初始化进度图表
     initProgressChart() {
-      if (!this.$refs.progressChartContainer) return;
+      console.log('开始初始化进度图表...');
+
+      if (!this.$refs.progressChartContainer) {
+        console.warn('图表容器不存在，无法初始化图表');
+        return;
+      }
 
       // 创建图表实例
-      this.progressChart = echarts.init(this.$refs.progressChartContainer);
+      try {
+        this.progressChart = echarts.init(this.$refs.progressChartContainer);
+        console.log('图表实例创建成功');
+      } catch (error) {
+        console.error('创建图表实例失败:', error);
+        return;
+      }
 
       // 添加窗口大小变化监听
       window.addEventListener('resize', this.resizeChart);
 
       // 如果没有学生ID，显示空图表
       if (!this.studentId) {
+        console.warn('没有学生ID，显示空图表');
         this.renderEmptyChart();
         return;
       }
 
       // 获取图表数据并渲染
+      console.log('开始获取图表数据...');
       this.fetchChartData();
     },
 
@@ -622,16 +642,54 @@ export default {
     async fetchChartData() {
       console.log('获取学习进度图表数据...');
 
-      // 检查本地存储中是否有缓存的进度数据
-      const cachedData = this.getProgressDataFromCache();
+      try {
+        // 直接从服务器获取最新数据，不使用缓存
+        console.log(`正在直接从服务器获取学生ID为 ${this.studentId} 的学习进度数据...`);
 
-      // 始终从服务器获取最新数据，确保图表显示最新的学习进度
-      await this.updateProgressDataCache(true);
+        const response = await axios.get(`/api/learning/student-progress/${this.studentId}`);
+        console.log('服务器返回的原始响应:', response);
 
-      // 如果服务器获取失败但有缓存数据，则使用缓存数据
-      if (!this.progressChart && cachedData) {
-        console.log('服务器获取失败，使用缓存的进度数据');
-        this.renderProgressChart(cachedData.data);
+        if (response.data && response.data.success) {
+          const progressData = response.data.data;
+          console.log('获取到的学习进度数据:', JSON.stringify(progressData, null, 2));
+
+          // 检查数据结构
+          if (progressData && progressData.chapters) {
+            console.log(`学习进度数据包含 ${progressData.chapters.length} 个章节`);
+
+            // 检查每个章节的数据
+            progressData.chapters.forEach((chapter, index) => {
+              console.log(`章节 ${index+1}: ${chapter.chapter_title}, 完成率: ${chapter.completion_rate}%, 已完成: ${chapter.completed_sections}/${chapter.total_sections}`);
+            });
+
+            // 渲染图表
+            this.renderProgressChart(progressData);
+
+            // 保存到缓存
+            const cacheData = {
+              data: progressData,
+              timestamp: new Date().getTime()
+            };
+            localStorage.setItem(`progress_data_${this.studentId}`, JSON.stringify(cacheData));
+          } else {
+            console.error('学习进度数据结构不完整:', progressData);
+            this.renderEmptyChart();
+          }
+        } else {
+          console.error('获取学习进度数据失败:', response.data ? response.data.message : '未知错误');
+          this.renderEmptyChart();
+        }
+      } catch (error) {
+        console.error('获取学习进度数据出错:', error);
+        console.error('错误详情:', error.stack || error);
+        this.renderEmptyChart();
+
+        // 检查是否有缓存数据
+        const cachedData = this.getProgressDataFromCache();
+        if (cachedData) {
+          console.log('服务器获取失败，使用缓存的进度数据');
+          this.renderProgressChart(cachedData.data);
+        }
       }
     },
 
@@ -717,13 +775,24 @@ export default {
 
     // 渲染进度图表
     renderProgressChart(data) {
+      console.log('开始渲染进度图表，数据:', data);
+
       // 如果没有数据，显示空图表
       if (!data || !data.chapters || data.chapters.length === 0) {
+        console.warn('没有章节数据，显示空图表');
         this.renderEmptyChart();
         return;
       }
 
+      // 确保图表实例存在
+      if (!this.progressChart) {
+        console.error('图表实例不存在，无法渲染');
+        return;
+      }
+
       const chapters = data.chapters;
+      console.log(`准备渲染 ${chapters.length} 个章节的进度数据`);
+
       const chapterTitles = chapters.map(chapter => chapter.chapter_title);
 
       // 使用小节完成率而不是题目完成率
@@ -735,14 +804,20 @@ export default {
 
         // 如果没有直接的完成率数据，但有小节数据，则计算完成率
         if (chapter.total_sections && typeof chapter.completed_sections === 'number') {
-          return chapter.total_sections > 0
+          const rate = chapter.total_sections > 0
             ? Math.round((chapter.completed_sections / chapter.total_sections) * 100)
             : 0;
+          console.log(`章节 ${chapter.chapter_title} 的完成率: ${rate}% (${chapter.completed_sections}/${chapter.total_sections})`);
+          return rate;
         }
 
         // 如果没有任何数据，返回0
+        console.warn(`章节 ${chapter.chapter_title} 没有完成率数据，使用0`);
         return 0;
       });
+
+      console.log('章节标题:', chapterTitles);
+      console.log('完成率:', completionRates);
 
       const option = {
         tooltip: {
@@ -826,7 +901,13 @@ export default {
         ]
       };
 
-      this.progressChart.setOption(option);
+      try {
+        console.log('设置图表选项...');
+        this.progressChart.setOption(option);
+        console.log('图表渲染成功');
+      } catch (error) {
+        console.error('渲染图表失败:', error);
+      }
     },
 
     // 渲染空图表

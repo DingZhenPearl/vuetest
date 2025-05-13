@@ -229,10 +229,25 @@ router.get('/student-progress/:studentId', async (req, res) => {
 
     try {
       // 调用Python脚本获取学生学习进度
+      console.log(`执行Python脚本获取学生学习进度，学生ID: ${studentId}`);
       const result = await executePythonScript('student_activity.py', [
         'get_progress',
         studentId
       ]);
+
+      console.log(`获取到学生学习进度数据:`, result);
+
+      // 确保返回的数据结构正确
+      if (result && result.data && result.data.chapters) {
+        console.log(`学习进度数据包含 ${result.data.chapters.length} 个章节`);
+
+        // 检查章节数据
+        result.data.chapters.forEach((chapter, index) => {
+          console.log(`章节 ${index+1}: ${chapter.chapter_title}, 完成率: ${chapter.completion_rate}%, 已完成: ${chapter.completed_sections}/${chapter.total_sections}`);
+        });
+      } else {
+        console.warn(`学习进度数据结构不完整:`, result);
+      }
 
       res.json(result);
     } catch (scriptError) {
