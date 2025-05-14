@@ -238,7 +238,9 @@ function parseAIResponse(response) {
     // 尝试解析JSON
     try {
       // 首先尝试直接解析整个内容
-      return JSON.parse(content);
+      const result = JSON.parse(content);
+      console.log('成功直接解析JSON');
+      return adaptResponseFormat(result);
     } catch (jsonError) {
       console.log('直接解析JSON失败，尝试提取JSON部分');
 
@@ -246,12 +248,34 @@ function parseAIResponse(response) {
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         try {
-          const result = JSON.parse(jsonMatch[0]);
+          // 清理JSON字符串，处理可能的格式问题
+          let jsonStr = jsonMatch[0];
+
+          // 处理嵌套引号问题
+          // 1. 先替换所有内部的双引号为特殊标记
+          jsonStr = jsonStr.replace(/"([^"]*)":/g, function(match) {
+            return match; // 保留属性名中的引号
+          });
+
+          // 2. 替换字符串值中的引号
+          jsonStr = jsonStr.replace(/:\s*"([^"]*)"/g, function(match, p1) {
+            // 将内部的双引号替换为单引号
+            let value = p1.replace(/"/g, "'");
+            return ': "' + value + '"';
+          });
+
+          // 3. 修复常见的JSON格式问题
+          jsonStr = jsonStr.replace(/,\s*}/g, '}'); // 移除对象末尾多余的逗号
+          jsonStr = jsonStr.replace(/,\s*]/g, ']'); // 移除数组末尾多余的逗号
+
+          console.log('清理后的JSON字符串:', jsonStr);
+
+          const result = JSON.parse(jsonStr);
           console.log('成功提取并解析JSON部分');
-          return result;
+          return adaptResponseFormat(result);
         } catch (extractError) {
           console.error('提取的JSON部分解析失败:', extractError);
-          throw extractError;
+          // 继续尝试其他方法，不抛出异常
         }
       }
 
@@ -263,35 +287,225 @@ function parseAIResponse(response) {
             jsonContent = jsonContent.split('```')[0];
           }
           jsonContent = jsonContent.trim();
+
+          // 处理嵌套引号问题
+          // 1. 先替换所有内部的双引号为特殊标记
+          jsonContent = jsonContent.replace(/"([^"]*)":/g, function(match) {
+            return match; // 保留属性名中的引号
+          });
+
+          // 2. 替换字符串值中的引号
+          jsonContent = jsonContent.replace(/:\s*"([^"]*)"/g, function(match, p1) {
+            // 将内部的双引号替换为单引号
+            let value = p1.replace(/"/g, "'");
+            return ': "' + value + '"';
+          });
+
+          // 3. 修复常见的JSON格式问题
+          jsonContent = jsonContent.replace(/,\s*}/g, '}'); // 移除对象末尾多余的逗号
+          jsonContent = jsonContent.replace(/,\s*]/g, ']'); // 移除数组末尾多余的逗号
+
+          console.log('清理后的markdown JSON字符串:', jsonContent);
+
           const result = JSON.parse(jsonContent);
           console.log('成功从markdown代码块提取并解析JSON');
-          return result;
+          return adaptResponseFormat(result);
         } catch (markdownError) {
           console.error('从markdown提取的JSON解析失败:', markdownError);
         }
       }
 
+      // 尝试手动解析内容，提取关键信息
+      console.log('尝试手动解析内容...');
+      try {
+        const manualResult = extractDataManually(content);
+        if (manualResult) {
+          console.log('成功手动解析内容');
+          return manualResult;
+        }
+      } catch (manualError) {
+        console.error('手动解析内容失败:', manualError);
+      }
+
       // 所有JSON解析方法都失败，返回一个默认结构
-      console.warn('所有JSON解析方法都失败，使用默认结构');
+      console.warn('所有解析方法都失败，使用默认结构');
       return {
-        summary: content,
-        strengths: ["数据解析失败，无法提取优势信息"],
-        weaknesses: ["数据解析失败，无法提取弱点信息"],
-        recommendations: ["数据解析失败，无法提取建议信息"],
-        correlation: "数据解析失败，无法提取关联性分析"
+        pattern: content,
+        strengths: "数据解析失败，无法提取优势信息",
+        weaknesses: "数据解析失败，无法提取弱点信息",
+        suggestions: "数据解析失败，无法提取建议信息"
       };
     }
   } catch (error) {
     console.error('解析AI响应失败:', error);
     // 返回一个错误结构而不是抛出异常，这样前端仍然能收到响应
     return {
-      summary: "AI响应解析失败: " + (error.message || '未知错误'),
-      strengths: ["数据解析失败"],
-      weaknesses: ["数据解析失败"],
-      recommendations: ["请检查服务器日志以获取更多信息"],
-      correlation: "数据解析失败"
+      pattern: "AI响应解析失败: " + (error.message || '未知错误'),
+      strengths: "数据解析失败",
+      weaknesses: "数据解析失败",
+      suggestions: "请检查服务器日志以获取更多信息"
     };
   }
+}
+
+/**
+ * 适配响应格式，确保返回的数据结构符合前端期望
+ * @param {Object} result 解析后的结果
+ * @returns {Object} 适配后的结果
+ */
+function adaptResponseFormat(result) {
+  // 检查是否是学生分析结果（包含pattern字段）
+  if (result.pattern !== undefined) {
+    // 确保所有字段都存在
+    return {
+      pattern: result.pattern || "无学习模式分析",
+      strengths: result.strengths || "无优势领域数据",
+      weaknesses: result.weaknesses || "无待提升领域数据",
+      suggestions: result.suggestions || "无学习建议数据"
+    };
+  }
+  // 检查是否是教学分析结果（包含summary字段）
+  else if (result.summary !== undefined) {
+    // 转换为学生分析结果格式
+    return {
+      pattern: result.summary || "无学习模式分析",
+      strengths: Array.isArray(result.strengths) ? result.strengths.join("\n") : (result.strengths || "无优势领域数据"),
+      weaknesses: Array.isArray(result.weaknesses) ? result.weaknesses.join("\n") : (result.weaknesses || "无待提升领域数据"),
+      suggestions: Array.isArray(result.recommendations) ? result.recommendations.join("\n") : (result.recommendations || "无学习建议数据")
+    };
+  }
+  // 未知格式，尝试最佳匹配
+  else {
+    const keys = Object.keys(result);
+    return {
+      pattern: result[keys.find(k => k.includes('pattern') || k.includes('summary') || k.includes('分析'))] || "无学习模式分析",
+      strengths: result[keys.find(k => k.includes('strength') || k.includes('优势'))] || "无优势领域数据",
+      weaknesses: result[keys.find(k => k.includes('weakness') || k.includes('弱点') || k.includes('待提升'))] || "无待提升领域数据",
+      suggestions: result[keys.find(k => k.includes('suggestion') || k.includes('recommendation') || k.includes('建议'))] || "无学习建议数据"
+    };
+  }
+}
+
+/**
+ * 手动从内容中提取数据
+ * @param {String} content AI响应内容
+ * @returns {Object|null} 提取的数据或null
+ */
+function extractDataManually(content) {
+  console.log('开始手动提取数据...');
+
+  // 尝试直接从JSON字符串中提取关键字段
+  try {
+    // 尝试提取pattern字段
+    const patternRegex = /"pattern"\s*:\s*"([^"]*)"/;
+    const patternMatch = content.match(patternRegex);
+    const pattern = patternMatch ? patternMatch[1] : "";
+
+    // 尝试提取strengths字段 - 这里使用非贪婪匹配，避免匹配到其他字段
+    const strengthsRegex = /"strengths"\s*:\s*"(.*?)(?=",\s*"w)/s;
+    const strengthsMatch = content.match(strengthsRegex);
+    const strengths = strengthsMatch ? strengthsMatch[1] : "";
+
+    // 尝试提取weaknesses字段
+    const weaknessesRegex = /"weaknesses"\s*:\s*"(.*?)(?=",\s*"s)/s;
+    const weaknessesMatch = content.match(weaknessesRegex);
+    const weaknesses = weaknessesMatch ? weaknessesMatch[1] : "";
+
+    // 尝试提取suggestions字段
+    const suggestionsRegex = /"suggestions"\s*:\s*"(.*?)(?="\s*})/s;
+    const suggestionsMatch = content.match(suggestionsRegex);
+    const suggestions = suggestionsMatch ? suggestionsMatch[1] : "";
+
+    console.log('手动提取结果:', {
+      pattern: pattern ? '提取成功' : '未提取',
+      strengths: strengths ? '提取成功' : '未提取',
+      weaknesses: weaknesses ? '提取成功' : '未提取',
+      suggestions: suggestions ? '提取成功' : '未提取'
+    });
+
+    // 如果至少提取到一个字段，返回结果
+    if (pattern || strengths || weaknesses || suggestions) {
+      return {
+        pattern: pattern || "学习模式分析",
+        strengths: strengths || "无优势领域数据",
+        weaknesses: weaknesses || "无待提升领域数据",
+        suggestions: suggestions || "无学习建议数据"
+      };
+    }
+  } catch (error) {
+    console.error('直接提取JSON字段失败:', error);
+  }
+
+  // 如果直接提取失败，尝试通过文本模式提取
+  try {
+    // 尝试提取学习模式分析、优势领域、待提升领域和学习建议
+    let pattern = "", strengths = "", weaknesses = "", suggestions = "";
+
+    // 提取学习模式分析
+    const patternMatch = content.match(/学习模式分析[：:]\s*([\s\S]*?)(?=优势领域[：:]|待提升领域[：:]|学习建议[：:]|$)/i);
+    if (patternMatch && patternMatch[1]) {
+      pattern = patternMatch[1].trim();
+    }
+
+    // 提取优势领域
+    const strengthsMatch = content.match(/优势领域[：:]\s*([\s\S]*?)(?=待提升领域[：:]|学习建议[：:]|$)/i);
+    if (strengthsMatch && strengthsMatch[1]) {
+      strengths = strengthsMatch[1].trim();
+    }
+
+    // 提取待提升领域
+    const weaknessesMatch = content.match(/待提升领域[：:]\s*([\s\S]*?)(?=学习建议[：:]|$)/i);
+    if (weaknessesMatch && weaknessesMatch[1]) {
+      weaknesses = weaknessesMatch[1].trim();
+    }
+
+    // 提取学习建议
+    const suggestionsMatch = content.match(/学习建议[：:]\s*([\s\S]*?)(?=$)/i);
+    if (suggestionsMatch && suggestionsMatch[1]) {
+      suggestions = suggestionsMatch[1].trim();
+    }
+
+    console.log('文本模式提取结果:', {
+      pattern: pattern ? '提取成功' : '未提取',
+      strengths: strengths ? '提取成功' : '未提取',
+      weaknesses: weaknesses ? '提取成功' : '未提取',
+      suggestions: suggestions ? '提取成功' : '未提取'
+    });
+
+    // 如果至少提取到一个字段，返回结果
+    if (pattern || strengths || weaknesses || suggestions) {
+      return {
+        pattern: pattern || "学习模式分析",
+        strengths: strengths || "无优势领域数据",
+        weaknesses: weaknesses || "无待提升领域数据",
+        suggestions: suggestions || "无学习建议数据"
+      };
+    }
+  } catch (error) {
+    console.error('文本模式提取失败:', error);
+  }
+
+  // 如果所有提取方法都失败，尝试最后的方法：直接使用整个内容
+  if (content && content.length > 0) {
+    // 检查内容是否包含关键词
+    const hasPattern = content.includes('学习模式') || content.includes('pattern');
+    const hasStrengths = content.includes('优势') || content.includes('strengths');
+    const hasWeaknesses = content.includes('待提升') || content.includes('弱点') || content.includes('weaknesses');
+    const hasSuggestions = content.includes('建议') || content.includes('suggestions');
+
+    if (hasPattern || hasStrengths || hasWeaknesses || hasSuggestions) {
+      console.log('使用整个内容作为分析结果');
+      return {
+        pattern: "从AI响应中提取的学习模式分析",
+        strengths: hasStrengths ? "AI响应中包含优势分析，但格式无法解析" : "无优势领域数据",
+        weaknesses: hasWeaknesses ? "AI响应中包含待提升领域分析，但格式无法解析" : "无待提升领域数据",
+        suggestions: hasSuggestions ? "AI响应中包含学习建议，但格式无法解析" : "无学习建议数据"
+      };
+    }
+  }
+
+  console.log('所有手动提取方法都失败');
+  return null;
 }
 
 /**
@@ -446,8 +660,16 @@ async function saveStudentAnalysis(studentId, analysis) {
   try {
     const { executePythonScript } = require('../services/python');
 
+    // 确保分析结果包含必要的字段
+    const validatedAnalysis = {
+      pattern: analysis.pattern || "无学习模式分析",
+      strengths: analysis.strengths || "无优势领域数据",
+      weaknesses: analysis.weaknesses || "无待提升领域数据",
+      suggestions: analysis.suggestions || "无学习建议数据"
+    };
+
     // 将分析结果转换为JSON字符串
-    const analysisJson = JSON.stringify(analysis);
+    const analysisJson = JSON.stringify(validatedAnalysis);
 
     // 调用Python脚本保存分析结果
     const result = await executePythonScript('save_student_analysis.py', [
