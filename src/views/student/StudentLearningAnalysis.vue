@@ -256,23 +256,23 @@ export default {
     async loadStats() {
       this.isLoadingStats = true
       try {
-        console.log('正在获取学生编程统计数据，学生ID:', this.studentId)
-        const codingResponse = await axios.get(`/api/coding/stats/${encodeURIComponent(this.studentId)}`)
-        const codingData = codingResponse.data
-        console.log('收到编程统计数据:', codingData)
+        console.log('正在获取学生学习统计数据，学生ID:', this.studentId)
+        const response = await axios.get(`/api/learning/student-data/${encodeURIComponent(this.studentId)}`)
+        const data = response.data
+        console.log('收到学习统计数据:', data)
 
-        if (codingData.success && codingData.data) {
+        if (data.success && data.data) {
           // 更新统计数据
-          this.updateStats(codingData.data)
+          this.updateStats(data.data)
         } else {
-          console.warn('编程统计数据获取失败或为空:', codingData.message || '未知原因')
+          console.warn('学习统计数据获取失败或为空:', data.message || '未知原因')
           // 显示错误信息
-          this.showError('编程统计数据获取失败', codingData.message || '未知原因')
+          this.showError('学习统计数据获取失败', data.message || '未知原因')
         }
       } catch (error) {
-        console.error('获取编程统计数据失败:', error)
+        console.error('获取学习统计数据失败:', error)
         // 显示错误信息
-        this.showError('编程统计数据获取失败', error.message || '未知错误')
+        this.showError('学习统计数据获取失败', error.message || '未知错误')
       } finally {
         this.isLoadingStats = false
       }
@@ -360,10 +360,34 @@ export default {
       // 更新统计卡片数据
       if (data.student_stats) {
         const stats = data.student_stats
+        console.log('更新统计卡片数据:', stats)
         this.overallStats[0].value = stats.completed_problems || 0
         this.overallStats[1].value = `${stats.completion_rate || 0}%`
         this.overallStats[2].value = this.formatTime(stats.total_learning_time || 0)
         this.overallStats[3].value = stats.pending_problems || 0
+      } else {
+        console.warn('未找到student_stats数据:', data)
+        // 尝试从其他数据结构中提取统计信息
+        if (data.problem_stats) {
+          const problemStats = data.problem_stats
+          const completedProblems = problemStats.solved_problems || 0
+          const totalProblems = problemStats.total_problems || 0
+          const completionRate = totalProblems > 0 ? Math.round((completedProblems / totalProblems) * 100) : 0
+          const avgTimeSpent = problemStats.avg_time_spent || 0
+          const totalLearningTime = Math.round(avgTimeSpent * completedProblems / 60) // 转换为分钟
+
+          console.log('从problem_stats提取统计数据:', {
+            completedProblems,
+            totalProblems,
+            completionRate,
+            totalLearningTime
+          })
+
+          this.overallStats[0].value = completedProblems
+          this.overallStats[1].value = `${completionRate}%`
+          this.overallStats[2].value = this.formatTime(totalLearningTime)
+          this.overallStats[3].value = totalProblems - completedProblems
+        }
       }
     },
     updateLearningBehaviorAnalysis(data) {

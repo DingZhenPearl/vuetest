@@ -97,21 +97,19 @@ def get_student_data(student_id):
 
         problem_stats = cursor.fetchone()
 
-        # 获取学生最近一周的活动
-        one_week_ago = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
-
+        # 获取学生所有的活动记录（不限制时间范围）
         cursor.execute("""
             SELECT
                 DATE(submission_time) as submission_date,
                 COUNT(*) as submission_count,
                 SUM(CASE WHEN submit_result = 'success' THEN 1 ELSE 0 END) as successful_count
             FROM edu_coding_submissions
-            WHERE student_id = %s AND submission_time >= %s
+            WHERE student_id = %s
             GROUP BY DATE(submission_time)
             ORDER BY submission_date
-        """, (student_id, one_week_ago))
+        """, (student_id,))
 
-        recent_activity = cursor.fetchall()
+        activity_history = cursor.fetchall()
 
         # 获取学生按难度分类的解题情况
         cursor.execute("""
@@ -162,7 +160,7 @@ def get_student_data(student_id):
             'student_info': student_info,
             'submission_stats': submission_stats,
             'problem_stats': problem_stats,
-            'recent_activity': recent_activity,
+            'activity_history': activity_history,
             'difficulty_stats': difficulty_stats,
             'error_patterns': error_patterns,
             'student_stats': student_stats

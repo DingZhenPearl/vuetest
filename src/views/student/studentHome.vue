@@ -366,16 +366,77 @@ export default {
         }
 
         const response = await axios.get(`/api/learning/student-data/${this.studentId}`);
+        console.log('收到学生学习数据:', response.data);
 
         if (response.data.success) {
-          const stats = response.data.data || {};
+          const data = response.data.data || {};
+
+          // 从student_stats中提取数据
+          let completedProblems = 0;
+          let studyHours = 0;
+
+          if (data.student_stats) {
+            const stats = data.student_stats;
+            console.log('从student_stats提取数据:', stats);
+            completedProblems = stats.completed_problems || 0;
+            studyHours = Math.round(stats.total_learning_time / 60) || 0; // 转换为小时
+          } else if (data.problem_stats) {
+            // 如果没有student_stats，尝试从problem_stats中提取
+            const problemStats = data.problem_stats;
+            console.log('从problem_stats提取数据:', problemStats);
+            completedProblems = problemStats.solved_problems || 0;
+            const avgTimeSpent = problemStats.avg_time_spent || 0;
+            studyHours = Math.round((avgTimeSpent * completedProblems / 60) / 60) || 0; // 转换为小时
+          }
+
+          // 计算学习天数（从所有历史活动中提取）
+          let studyDays = 0;
+          if (data.activity_history && Array.isArray(data.activity_history)) {
+            // 计算不同的学习日期数量
+            const uniqueDates = new Set();
+            data.activity_history.forEach(activity => {
+              if (activity.submission_date) {
+                uniqueDates.add(activity.submission_date.split(' ')[0]); // 只取日期部分
+              }
+            });
+            studyDays = uniqueDates.size || 0;
+            console.log(`从活动历史中计算出学习天数: ${studyDays}天，共有${data.activity_history.length}条活动记录`);
+
+            // 如果没有活动记录，至少设置为1天
+            if (studyDays === 0 && completedProblems > 0) {
+              studyDays = 1;
+              console.log('没有活动记录但有完成的题目，设置学习天数为1天');
+            }
+          } else if (completedProblems > 0) {
+            // 如果有完成的题目但没有活动记录，至少设置为1天
+            studyDays = 1;
+            console.log('没有活动历史数据但有完成的题目，设置学习天数为1天');
+          }
+
+          // 如果数据中有recent_activity但没有activity_history，尝试从recent_activity中提取
+          if (studyDays === 0 && data.recent_activity && Array.isArray(data.recent_activity)) {
+            const uniqueDates = new Set();
+            data.recent_activity.forEach(activity => {
+              if (activity.submission_date) {
+                uniqueDates.add(activity.submission_date.split(' ')[0]);
+              }
+            });
+            studyDays = uniqueDates.size || 0;
+            console.log(`从recent_activity中计算出学习天数: ${studyDays}天，共有${data.recent_activity.length}条活动记录`);
+
+            if (studyDays === 0 && completedProblems > 0) {
+              studyDays = 1;
+            }
+          }
 
           // 更新用户统计数据
           const userStats = {
-            studyDays: stats.study_days || 0,
-            completedProblems: stats.completed_problems || 0,
-            studyHours: stats.study_hours || 0
+            studyDays: studyDays,
+            completedProblems: completedProblems,
+            studyHours: studyHours
           };
+
+          console.log('更新用户统计数据:', userStats);
 
           // 更新组件数据
           this.userStats = userStats;
