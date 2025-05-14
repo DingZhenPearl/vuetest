@@ -212,6 +212,9 @@ export default {
     this.initData()
   },
   beforeUnmount() {
+    // 移除窗口大小变化事件监听
+    window.removeEventListener('resize', this.resizeCharts)
+
     // 销毁图表实例
     if (this.charts.progress) {
       this.charts.progress.dispose()
@@ -297,14 +300,19 @@ export default {
         console.log('正在获取图表数据，学生ID:', this.studentId)
         const behaviorResponse = await axios.get(`/api/learning/behavior-analysis/${encodeURIComponent(this.studentId)}`)
         const behaviorData = behaviorResponse.data
+        console.log('收到图表数据响应:', behaviorData)
 
         if (behaviorData.success && behaviorData.data) {
           // 更新图表数据
           this.updateChartData(behaviorData.data)
 
-          // 初始化图表
+          // 确保DOM已更新后初始化图表
           this.$nextTick(() => {
-            this.initCharts()
+            console.log('DOM更新后开始初始化图表')
+            // 延迟一点时间确保DOM完全渲染
+            setTimeout(() => {
+              this.initCharts()
+            }, 100)
           })
         } else {
           console.warn('图表数据获取失败:', behaviorData.message || '未知原因')
@@ -625,20 +633,63 @@ export default {
       }
     },
     initCharts() {
-      // 初始化进度图表
-      if (this.$refs.progressChart) {
-        this.charts.progress = echarts.init(this.$refs.progressChart)
-        this.renderProgressChart()
+      console.log('开始初始化图表，检查DOM元素...')
+      console.log('进度图表DOM元素:', this.$refs.progressChart ? '存在' : '不存在')
+      console.log('表现图表DOM元素:', this.$refs.performanceChart ? '存在' : '不存在')
+
+      // 如果DOM元素不存在，设置重试
+      if (!this.$refs.progressChart || !this.$refs.performanceChart) {
+        console.log('图表DOM元素不存在，将在200ms后重试初始化')
+        setTimeout(() => {
+          this.initCharts()
+        }, 200)
+        return
       }
 
-      // 初始化表现图表
-      if (this.$refs.performanceChart) {
-        this.charts.performance = echarts.init(this.$refs.performanceChart)
-        this.renderPerformanceChart()
+      try {
+        // 初始化进度图表
+        if (this.$refs.progressChart) {
+          console.log('初始化进度图表...')
+          if (this.charts.progress) {
+            this.charts.progress.dispose()
+          }
+          this.charts.progress = echarts.init(this.$refs.progressChart)
+          this.renderProgressChart()
+        }
+
+        // 初始化表现图表
+        if (this.$refs.performanceChart) {
+          console.log('初始化表现图表...')
+          if (this.charts.performance) {
+            this.charts.performance.dispose()
+          }
+          this.charts.performance = echarts.init(this.$refs.performanceChart)
+          this.renderPerformanceChart()
+        }
+
+        // 添加窗口大小变化时自动调整图表大小
+        window.addEventListener('resize', this.resizeCharts)
+        console.log('图表初始化完成')
+      } catch (error) {
+        console.error('初始化图表时出错:', error)
+        // 发生错误时也设置重试
+        setTimeout(() => {
+          this.initCharts()
+        }, 200)
       }
     },
     renderProgressChart() {
       try {
+        if (!this.charts.progress) {
+          console.warn('进度图表实例不存在，尝试重新初始化')
+          if (this.$refs.progressChart) {
+            this.charts.progress = echarts.init(this.$refs.progressChart)
+          } else {
+            console.warn('进度图表DOM元素不存在，无法渲染图表')
+            return
+          }
+        }
+
         if (!this.chartData || !this.chartData.progress) {
           console.warn('进度图表数据不完整')
           this.showError('进度图表数据不完整', '无法获取完整的进度图表数据')
@@ -646,6 +697,7 @@ export default {
         }
 
         const chartData = this.chartData.progress
+        console.log('渲染进度图表，数据:', chartData)
 
         const option = {
           tooltip: {
@@ -675,6 +727,7 @@ export default {
         }
 
         this.charts.progress.setOption(option)
+        console.log('进度图表渲染完成')
       } catch (error) {
         console.error('渲染进度图表时出错:', error)
         this.showError('渲染进度图表时出错', error.message || '未知错误')
@@ -682,6 +735,16 @@ export default {
     },
     renderPerformanceChart() {
       try {
+        if (!this.charts.performance) {
+          console.warn('表现图表实例不存在，尝试重新初始化')
+          if (this.$refs.performanceChart) {
+            this.charts.performance = echarts.init(this.$refs.performanceChart)
+          } else {
+            console.warn('表现图表DOM元素不存在，无法渲染图表')
+            return
+          }
+        }
+
         if (!this.chartData || !this.chartData.performance) {
           console.warn('表现图表数据不完整')
           this.showError('表现图表数据不完整', '无法获取完整的表现图表数据')
@@ -689,6 +752,7 @@ export default {
         }
 
         const chartData = this.chartData.performance
+        console.log('渲染表现图表，数据:', chartData)
 
         const option = {
           tooltip: {
@@ -717,6 +781,7 @@ export default {
         }
 
         this.charts.performance.setOption(option)
+        console.log('表现图表渲染完成')
       } catch (error) {
         console.error('渲染表现图表时出错:', error)
         this.showError('渲染表现图表时出错', error.message || '未知错误')
@@ -837,6 +902,17 @@ export default {
       const hours = Math.floor(minutes / 60)
       const mins = minutes % 60
       return `${hours}小时${mins}分钟`
+    },
+
+    // 调整图表大小
+    resizeCharts() {
+      console.log('调整图表大小')
+      if (this.charts.progress) {
+        this.charts.progress.resize()
+      }
+      if (this.charts.performance) {
+        this.charts.performance.resize()
+      }
     },
 
     // 显示错误信息
