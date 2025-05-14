@@ -83,9 +83,6 @@
                   <div class="recommendation-content">
                     <h4>{{ item.title }}</h4>
                     <p>{{ item.description }}</p>
-                    <t-button theme="primary" size="small" variant="outline" @click="navigateTo(item.route)">
-                      立即学习
-                    </t-button>
                   </div>
                 </div>
               </div>

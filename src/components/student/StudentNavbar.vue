@@ -69,25 +69,14 @@
       <div class="menu-section">
         <div class="section-title" v-if="!isCollapsed">更多功能</div>
 
-        <el-submenu index="learning" class="menu-item">
-          <el-menu-item index="/student/programming-concepts">
-            <i class="el-icon-edit-outline"></i>
-            <span>学习资源</span>
-          </el-menu-item>
-          <el-menu-item index="/case-analysis" @click.prevent="caseAnalysis">
-            <i class="el-icon-document"></i>
-            <span>案例分析</span>
-          </el-menu-item>
-        </el-submenu>
+        <el-menu-item index="/student/programming-concepts" class="menu-item">
+          <i class="el-icon-edit-outline"></i>
+          <template v-slot:title>学习资源</template>
+        </el-menu-item>
 
         <el-menu-item index="/student/learning-analysis" class="menu-item">
           <i class="el-icon-data-analysis"></i>
           <template v-slot:title>学习分析</template>
-        </el-menu-item>
-
-        <el-menu-item index="/troubleshooting" @click.prevent="troubleshooting" class="menu-item">
-          <i class="el-icon-question"></i>
-          <template v-slot:title>疑难解答</template>
         </el-menu-item>
       </div>
 
@@ -153,18 +142,8 @@ export default {
       this.isCollapsed = !this.isCollapsed;
     },
 
-    caseAnalysis() {
-      this.$message({
-        message: '实战案例分析功能即将上线，敬请期待！',
-        type: 'info'
-      });
-    },
-    troubleshooting() {
-      this.$message({
-        message: '疑难解答功能即将上线，敬请期待！',
-        type: 'info'
-      });
-    },
+
+
 
     logout() {
       console.log("退出登录");

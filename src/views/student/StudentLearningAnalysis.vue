@@ -76,13 +76,11 @@
               <div class="recommendation-content">
                 <p>{{ rec.description }}</p>
               </div>
-              <div class="recommendation-resources" v-if="rec.resources && rec.resources.length > 0">
-                <h4>推荐资源:</h4>
+              <div class="recommendation-resources" v-if="rec.keyPoints && rec.keyPoints.length > 0">
+                <h4>关键知识点:</h4>
                 <ul>
-                  <li v-for="(resource, rIndex) in rec.resources" :key="rIndex">
-                    <a :href="resource.url" target="_blank" v-if="resource.url">{{ resource.title }}</a>
-                    <span v-else>{{ resource.title }}</span>
-                    <span class="resource-description" v-if="resource.description"> - {{ resource.description }}</span>
+                  <li v-for="(point, pIndex) in rec.keyPoints" :key="pIndex">
+                    {{ point }}
                   </li>
                 </ul>
               </div>
@@ -848,24 +846,8 @@ export default {
       }
     },
     startLearning(recommendation) {
-      console.log('开始学习推荐内容:', recommendation)
-
-      if (recommendation.problemId) {
-        // 如果有题目ID，跳转到习题页面
-        console.log(`跳转到题目: ${recommendation.problemId}`)
-        this.$router.push(`/student/exams?problem=${recommendation.problemId}`)
-      } else if (recommendation.chapterId) {
-        // 如果有章节ID，跳转到编程概念页面并打开对应章节
-        console.log(`跳转到章节: ${recommendation.chapterId}`)
-        this.$router.push({
-          path: '/student/programming-concepts',
-          query: { chapter: recommendation.chapterId }
-        })
-        this.$message.success(`正在前往学习${recommendation.title}`)
-      } else {
-        console.log('没有找到可跳转的内容')
-        this.$message.info('即将开始学习该内容')
-      }
+      console.log('查看推荐内容:', recommendation)
+      this.$message.info(`请查看${recommendation.title}的关键知识点，并在学习资源页面学习相关内容`)
     },
     async markAsRead(recommendation, index) {
       try {
@@ -898,6 +880,8 @@ export default {
         default: return '推荐'
       }
     },
+
+
     formatTime(minutes) {
       const hours = Math.floor(minutes / 60)
       const mins = minutes % 60
