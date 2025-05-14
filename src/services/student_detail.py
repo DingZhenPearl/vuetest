@@ -8,18 +8,27 @@
 import sys
 import json
 import mysql.connector
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import traceback
 from decimal import Decimal
 
-# 自定义JSON编码器，处理datetime和Decimal等类型
+# 自定义JSON编码器，处理datetime、date和Decimal等类型
 class CustomJSONEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, datetime):
             return obj.strftime('%Y-%m-%d %H:%M:%S')
+        elif isinstance(obj, date):
+            return obj.strftime('%Y-%m-%d')
         elif isinstance(obj, Decimal):
             return float(obj)
-        return json.JSONEncoder.default(self, obj)
+        elif obj is None:
+            return None
+        try:
+            # 尝试将其他类型转换为字符串
+            return str(obj)
+        except:
+            # 如果无法转换，返回一个默认值
+            return None
 
 def get_db_connection():
     """获取数据库连接"""
@@ -113,7 +122,7 @@ def get_student_detail(student_id):
                 SELECT
                     p.difficulty,
                     COUNT(DISTINCT cs.problem_id) as attempted_problems,
-                    SUM(CASE WHEN cs.submit_result = 'success' THEN 1 ELSE 0 END) > 0 as solved_problems,
+                    CASE WHEN SUM(CASE WHEN cs.submit_result = 'success' THEN 1 ELSE 0 END) > 0 THEN 1 ELSE 0 END as solved_problems,
                     AVG(ps.time_spent_seconds) as avg_time_spent
                 FROM edu_coding_submissions cs
                 JOIN edu_problems p ON cs.problem_id = p.id
@@ -125,7 +134,9 @@ def get_student_detail(student_id):
             difficulty_stats = cursor.fetchall()
         except mysql.connector.Error as err:
             print(f"查询难度分类数据失败: {str(err)}", file=sys.stderr)
+            traceback.print_exc(file=sys.stderr)
             difficulty_stats = []
+            # 不要让这个错误中断整个流程
 
         # 4. 获取学生常见错误类型
         print(f"查询学生常见错误类型...", file=sys.stderr)
@@ -186,8 +197,29 @@ def get_student_detail(student_id):
             """, (student_id,))
 
             problems = cursor.fetchall()
+
+            # 如果没有从edu_problem_solving_stats获取到数据，尝试从edu_coding_submissions获取
+            if not problems:
+                print(f"从edu_problem_solving_stats未找到数据，尝试从edu_coding_submissions获取...", file=sys.stderr)
+                cursor.execute("""
+                    SELECT
+                        cs.problem_id,
+                        MAX(cs.problem_title) as problem_title,
+                        MAX(CASE WHEN cs.submit_result = 'success' THEN 1 ELSE 0 END) as is_solved,
+                        COUNT(*) as attempts,
+                        NULL as time_spent_seconds,
+                        MAX(cs.submission_time) as submission_time
+                    FROM edu_coding_submissions cs
+                    WHERE cs.student_id = %s
+                    GROUP BY cs.problem_id
+                    ORDER BY submission_time DESC
+                """, (student_id,))
+
+                problems = cursor.fetchall()
+
         except mysql.connector.Error as err:
             print(f"查询题目完成情况失败: {str(err)}", file=sys.stderr)
+            traceback.print_exc(file=sys.stderr)
             problems = []
 
         # 7. 获取学生已有的AI分析结果
@@ -222,10 +254,47 @@ def get_student_detail(student_id):
             'ai_analysis': ai_analysis
         }
 
-        print(json.dumps({
-            'success': True,
-            'data': result
-        }, cls=CustomJSONEncoder))
+        # 添加调试信息
+        print(f"准备序列化结果数据...", file=sys.stderr)
+
+        # 检查每个数据部分是否包含可能导致序列化问题的字段
+        try:
+            # 检查recent_activity中的日期字段
+            for item in recent_activity:
+                if 'submission_date' in item and isinstance(item['submission_date'], date):
+                    print(f"发现date类型: {item['submission_date']}", file=sys.stderr)
+                    # 将date转换为字符串
+                    item['submission_date'] = item['submission_date'].strftime('%Y-%m-%d')
+
+            # 检查problems中的日期字段
+            for problem in problems:
+                if 'submission_time' in problem and problem['submission_time'] is not None:
+                    if isinstance(problem['submission_time'], date) or isinstance(problem['submission_time'], datetime):
+                        print(f"发现日期类型: {problem['submission_time']}", file=sys.stderr)
+                        # 将日期转换为字符串
+                        if isinstance(problem['submission_time'], date):
+                            problem['submission_time'] = problem['submission_time'].strftime('%Y-%m-%d')
+                        else:
+                            problem['submission_time'] = problem['submission_time'].strftime('%Y-%m-%d %H:%M:%S')
+
+            # 尝试序列化结果
+            print(json.dumps({
+                'success': True,
+                'data': result
+            }, cls=CustomJSONEncoder))
+
+        except Exception as e:
+            print(f"序列化结果数据时发生错误: {str(e)}", file=sys.stderr)
+            traceback.print_exc(file=sys.stderr)
+
+            # 返回简化的结果
+            print(json.dumps({
+                'success': True,
+                'data': {
+                    'student': student,
+                    'message': '部分数据无法序列化，请联系管理员'
+                }
+            }, cls=CustomJSONEncoder))
 
     except Exception as e:
         print(f"获取学生详细信息时发生错误: {str(e)}", file=sys.stderr)
