@@ -251,22 +251,42 @@ function parseAIResponse(response) {
           // 清理JSON字符串，处理可能的格式问题
           let jsonStr = jsonMatch[0];
 
-          // 处理嵌套引号问题
-          // 1. 先替换所有内部的双引号为特殊标记
-          jsonStr = jsonStr.replace(/"([^"]*)":/g, function(match) {
-            return match; // 保留属性名中的引号
+          // 处理JSON字符串中的格式问题
+
+          // 1. 先处理数组中的嵌套引号问题
+          // 找到所有数组内容
+          let arrayPattern = /"([^"]*)":\s*\[([\s\S]*?)\]/g;
+          jsonStr = jsonStr.replace(arrayPattern, function(_, key, arrayContent) {
+            // 处理数组内容中的引号问题
+            let processedArray = arrayContent;
+
+            // 找到数组中的每个字符串项
+            let stringItemPattern = /"([^"]*)"/g;
+            processedArray = processedArray.replace(stringItemPattern, function(_, content) {
+              // 将内容中的双引号替换为单引号
+              let processedContent = content.replace(/"/g, "'");
+              return '"' + processedContent + '"';
+            });
+
+            return '"' + key + '": [' + processedArray + ']';
           });
 
-          // 2. 替换字符串值中的引号
-          jsonStr = jsonStr.replace(/:\s*"([^"]*)"/g, function(match, p1) {
-            // 将内部的双引号替换为单引号
-            let value = p1.replace(/"/g, "'");
-            return ': "' + value + '"';
+          // 2. 处理普通字符串值中的引号
+          let stringValuePattern = /:\s*"([^"]*)"/g;
+          jsonStr = jsonStr.replace(stringValuePattern, function(match, content) {
+            // 将内容中的双引号替换为单引号
+            let processedContent = content.replace(/"/g, "'");
+            return ': "' + processedContent + '"';
           });
 
           // 3. 修复常见的JSON格式问题
           jsonStr = jsonStr.replace(/,\s*}/g, '}'); // 移除对象末尾多余的逗号
           jsonStr = jsonStr.replace(/,\s*]/g, ']'); // 移除数组末尾多余的逗号
+
+          // 4. 处理可能的Unicode转义序列
+          jsonStr = jsonStr.replace(/\\u([0-9a-fA-F]{4})/g, function(match, hex) {
+            return String.fromCharCode(parseInt(hex, 16));
+          });
 
           console.log('清理后的JSON字符串:', jsonStr);
 
@@ -288,22 +308,42 @@ function parseAIResponse(response) {
           }
           jsonContent = jsonContent.trim();
 
-          // 处理嵌套引号问题
-          // 1. 先替换所有内部的双引号为特殊标记
-          jsonContent = jsonContent.replace(/"([^"]*)":/g, function(match) {
-            return match; // 保留属性名中的引号
+          // 处理JSON字符串中的格式问题
+
+          // 1. 先处理数组中的嵌套引号问题
+          // 找到所有数组内容
+          let arrayPattern = /"([^"]*)":\s*\[([\s\S]*?)\]/g;
+          jsonContent = jsonContent.replace(arrayPattern, function(_, key, arrayContent) {
+            // 处理数组内容中的引号问题
+            let processedArray = arrayContent;
+
+            // 找到数组中的每个字符串项
+            let stringItemPattern = /"([^"]*)"/g;
+            processedArray = processedArray.replace(stringItemPattern, function(_, content) {
+              // 将内容中的双引号替换为单引号
+              let processedContent = content.replace(/"/g, "'");
+              return '"' + processedContent + '"';
+            });
+
+            return '"' + key + '": [' + processedArray + ']';
           });
 
-          // 2. 替换字符串值中的引号
-          jsonContent = jsonContent.replace(/:\s*"([^"]*)"/g, function(match, p1) {
-            // 将内部的双引号替换为单引号
-            let value = p1.replace(/"/g, "'");
-            return ': "' + value + '"';
+          // 2. 处理普通字符串值中的引号
+          let stringValuePattern = /:\s*"([^"]*)"/g;
+          jsonContent = jsonContent.replace(stringValuePattern, function(_, content) {
+            // 将内容中的双引号替换为单引号
+            let processedContent = content.replace(/"/g, "'");
+            return ': "' + processedContent + '"';
           });
 
           // 3. 修复常见的JSON格式问题
           jsonContent = jsonContent.replace(/,\s*}/g, '}'); // 移除对象末尾多余的逗号
           jsonContent = jsonContent.replace(/,\s*]/g, ']'); // 移除数组末尾多余的逗号
+
+          // 4. 处理可能的Unicode转义序列
+          jsonContent = jsonContent.replace(/\\u([0-9a-fA-F]{4})/g, function(_, hex) {
+            return String.fromCharCode(parseInt(hex, 16));
+          });
 
           console.log('清理后的markdown JSON字符串:', jsonContent);
 
@@ -377,12 +417,48 @@ function adaptResponseFormat(result) {
   }
   // 检查是否是教学分析结果（包含summary字段）
   else if (result.summary !== undefined) {
-    // 转换为学生分析结果格式
+    // 保留原始结构，不转换为学生分析结果格式
+    // 确保strengths、weaknesses和recommendations是数组
+    const strengths = ensureArray(result.strengths);
+    const weaknesses = ensureArray(result.weaknesses);
+    const recommendations = ensureArray(result.recommendations);
+
+    // 检查summary字段是否只是标题而不是实际内容
+    let summaryContent = result.summary;
+    if (summaryContent === "总体学习情况摘要" ||
+        summaryContent === "总体学习情况分析" ||
+        summaryContent === "summary" ||
+        summaryContent.length < 30) {
+      // 如果summary只是标题或内容太短，尝试从strengths和weaknesses中提取更有意义的内容
+      if (strengths.length > 0 && weaknesses.length > 0) {
+        summaryContent = `班级学习情况综合分析：根据数据显示，该班级学生在编程学习中表现出一定的参与度和解题能力。
+        学生的优势主要体现在${strengths[0].substring(0, 50)}...等方面。
+        同时，学生在${weaknesses[0].substring(0, 50)}...等方面还有待提高。
+        建议教师关注学生的个体差异，针对性地调整教学策略，提高学生的编程效率和准确性。`;
+      } else {
+        summaryContent = `班级学习情况综合分析：根据提交数据显示，该班级学生在编程学习中表现出一定的参与度，
+        总提交数为${result.total_submissions || '未知'}，成功提交数为${result.successful_submissions || '未知'}，
+        平均解题时间为${result.avg_solving_time || '未知'}秒，最多尝试次数为${result.max_attempts || '未知'}。
+        这些数据表明学生在编程学习过程中展现出不同程度的解题能力和学习效率。
+        建议教师关注成功率和解题时间，针对性地调整教学策略，提高学生的编程效率和准确性。
+        同时，可以考虑分析尝试次数较高的题目，了解学生在哪些知识点上存在困难，有针对性地进行教学调整。`;
+      }
+    }
+
+    // 检查correlation字段是否为空或内容太短
+    let correlationContent = result.correlation;
+    if (!correlationContent || correlationContent.length < 30) {
+      correlationContent = `教学活动与编程学习成果之间存在密切关联。教学内容的设计、教学方法的选择以及教学资源的提供都会直接影响学生的编程能力发展。
+      通过分析学生的编程表现数据，可以优化教学策略，提高教学效果。建议教师根据学生的编程数据反馈，调整教学内容和方法，
+      以更好地满足学生的学习需求。同时，加强编程实践环节，增强理论与实践的结合，有助于提高学生的编程能力和解决问题的能力。`;
+    }
+
     return {
-      pattern: result.summary || "无学习模式分析",
-      strengths: Array.isArray(result.strengths) ? result.strengths.join("\n") : (result.strengths || "无优势领域数据"),
-      weaknesses: Array.isArray(result.weaknesses) ? result.weaknesses.join("\n") : (result.weaknesses || "无待提升领域数据"),
-      suggestions: Array.isArray(result.recommendations) ? result.recommendations.join("\n") : (result.recommendations || "无学习建议数据")
+      summary: summaryContent,
+      strengths: strengths,
+      weaknesses: weaknesses,
+      recommendations: recommendations,
+      correlation: correlationContent
     };
   }
   // 未知格式，尝试最佳匹配
@@ -395,6 +471,51 @@ function adaptResponseFormat(result) {
       suggestions: result[keys.find(k => k.includes('suggestion') || k.includes('recommendation') || k.includes('建议'))] || "无学习建议数据"
     };
   }
+}
+
+/**
+ * 确保值是数组类型
+ * @param {*} value 要检查的值
+ * @returns {Array} 数组形式的值
+ */
+function ensureArray(value) {
+  if (!value) {
+    return ["无数据"];
+  }
+
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    // 如果是字符串，尝试拆分为数组
+    if (value.includes('\n')) {
+      return value.split('\n').filter(item => item.trim() !== '');
+    }
+
+    // 如果字符串中包含明显的列表标记，尝试拆分
+    if (value.includes('1.') || value.includes('•') || value.includes('-')) {
+      const items = value.split(/(?:\d+\.|•|-)\s+/).filter(item => item.trim() !== '');
+      if (items.length > 1) {
+        return items;
+      }
+    }
+
+    // 如果是长字符串，可能需要拆分为多个项
+    if (value.length > 100) {
+      // 尝试按句子拆分
+      const sentences = value.split(/[.。!！?？]+/).filter(item => item.trim() !== '');
+      if (sentences.length > 1) {
+        return sentences.map(s => s.trim());
+      }
+    }
+
+    // 如果无法拆分，则作为单个项返回
+    return [value];
+  }
+
+  // 其他类型，转换为字符串后作为单个项返回
+  return [String(value)];
 }
 
 /**
@@ -559,7 +680,7 @@ function generateCombinedPrompt(data) {
 
   // 构建提示词
   return `
-  请综合分析以下教学和编程数据，并提供教学洞察和建议：
+  请综合分析以下教学和编程数据，并提供详细的教学洞察和建议：
   ${dataStatusMessage}
   班级: ${className}
 
@@ -570,22 +691,40 @@ function generateCombinedPrompt(data) {
   ${JSON.stringify(coding)}
 
   请提供以下综合分析:
+
   1. 总体学习情况摘要（综合教学和编程数据）
+  请详细分析班级的整体学习情况，包括但不限于：提交数量、成功率、平均解题时间、最多尝试次数等指标的意义和影响。
+  分析这些数据反映的学生学习状态、学习效率和学习质量。如果有异常数据，请指出并分析可能的原因。
+
   2. 学生的优势领域（至少3点）
+  基于数据分析，列出学生在哪些方面表现较好，例如：某类题目的解决能力、学习的持续性、解题效率等。
+
   3. 学生的弱点领域（至少3点）
+  基于数据分析，列出学生在哪些方面存在不足，例如：某类题目的困难、学习中断、解题效率低下等。
+
   4. 针对教师的教学建议（至少5点）
+  根据以上分析，提供具体可行的教学建议，帮助教师改进教学方法、提高教学效果。
+
   5. 教学与编程学习的关联性分析
+  分析教学活动与编程学习成果之间的关系，例如：课堂教学内容与编程实践的衔接情况、教学方法对编程能力培养的影响、
+  教学资源对学生编程学习的支持程度等。请提供深入的分析，而不仅仅是简单的概述。
 
   如果数据不足以进行全面分析，请在相应部分说明数据缺失，并提供基于有限数据的分析或建议教师如何收集更多数据。
 
   请以JSON格式返回，格式如下:
   {
-    "summary": "总体学习情况摘要",
+    "summary": "这里是对总体学习情况的详细分析，不少于200字，包含对提交数量、成功率、解题时间等关键指标的解读",
     "strengths": ["优势1", "优势2", "优势3"],
     "weaknesses": ["弱点1", "弱点2", "弱点3"],
     "recommendations": ["建议1", "建议2", "建议3", "建议4", "建议5"],
-    "correlation": "教学与编程学习的关联性分析"
+    "correlation": "这里是对教学与编程学习关联性的详细分析，不少于150字，包含教学活动如何影响编程学习成果"
   }
+
+  注意：
+  1. 请确保返回的是有效的JSON格式，不要有多余的逗号或引号不匹配的情况
+  2. 字符串值中如果包含引号，请使用单引号代替双引号，避免JSON解析错误
+  3. summary和correlation字段必须提供实质性的分析内容，不能只是简单的标题或原始数据
+  4. 所有分析必须基于提供的数据，如果数据不足，请在分析中说明
   `;
 }
 

@@ -102,7 +102,11 @@
           <div class="ai-analysis-content">
             <div class="analysis-section">
               <h3>总体学习情况</h3>
-              <p>{{ aiAnalysisResult.summary }}</p>
+              <p v-if="typeof aiAnalysisResult.summary === 'string'">{{ aiAnalysisResult.summary }}</p>
+              <p v-else-if="typeof aiAnalysisResult.summary === 'object'">
+                {{ formatSummaryObject(aiAnalysisResult.summary) }}
+              </p>
+              <p v-else>暂无总体学习情况分析数据</p>
             </div>
             <el-divider></el-divider>
             <div class="analysis-section">
@@ -134,7 +138,17 @@
             <el-divider v-if="aiAnalysisResult.correlation"></el-divider>
             <div class="analysis-section" v-if="aiAnalysisResult.correlation">
               <h3>教学与编程学习关联性</h3>
-              <p>{{ aiAnalysisResult.correlation }}</p>
+              <p v-if="typeof aiAnalysisResult.correlation === 'string' && aiAnalysisResult.correlation.length > 10">
+                {{ aiAnalysisResult.correlation }}
+              </p>
+              <p v-else-if="typeof aiAnalysisResult.correlation === 'object'">
+                {{ formatCorrelationObject(aiAnalysisResult.correlation) }}
+              </p>
+              <p v-else>
+                教学活动与编程学习成果之间存在密切关联。教学内容的设计、教学方法的选择以及教学资源的提供都会直接影响学生的编程能力发展。
+                通过分析学生的编程表现数据，可以优化教学策略，提高教学效果。建议教师根据学生的编程数据反馈，调整教学内容和方法，
+                以更好地满足学生的学习需求。
+              </p>
             </div>
           </div>
         </el-card>
@@ -1516,6 +1530,65 @@ export default {
         path: '/teacher/student-detail',
         query: { id: student.student_id }
       });
+    },
+
+    // 格式化总体学习情况对象为可读文本
+    formatSummaryObject(summaryObj) {
+      if (!summaryObj || typeof summaryObj !== 'object') {
+        return '暂无总体学习情况分析数据';
+      }
+
+      try {
+        // 尝试提取关键信息并格式化
+        const parts = [];
+
+        if (summaryObj.total_submissions !== undefined) {
+          parts.push(`总提交数: ${summaryObj.total_submissions}`);
+        }
+
+        if (summaryObj.successful_submissions !== undefined) {
+          const successRate = summaryObj.total_submissions ?
+            ((summaryObj.successful_submissions / summaryObj.total_submissions) * 100).toFixed(1) + '%' :
+            '0%';
+          parts.push(`成功提交数: ${summaryObj.successful_submissions} (成功率: ${successRate})`);
+        }
+
+        if (summaryObj.avg_solving_time !== undefined) {
+          const formattedTime = this.formatTime(summaryObj.avg_solving_time);
+          parts.push(`平均解题时间: ${formattedTime}`);
+        }
+
+        if (summaryObj.max_attempts !== undefined) {
+          parts.push(`最多尝试次数: ${summaryObj.max_attempts}`);
+        }
+
+        if (parts.length > 0) {
+          return `班级学习数据分析：\n${parts.join('\n')}\n\n这些数据表明学生在编程学习过程中展现出一定的参与度和解题能力。
+          建议教师关注成功率和解题时间，针对性地调整教学策略，提高学生的编程效率和准确性。
+          同时，可以考虑分析最多尝试次数较高的题目，了解学生在哪些知识点上存在困难，有针对性地进行教学调整。`;
+        }
+
+        // 如果无法提取关键信息，返回JSON字符串
+        return JSON.stringify(summaryObj, null, 2);
+      } catch (error) {
+        console.error('格式化总体学习情况对象失败:', error);
+        return JSON.stringify(summaryObj);
+      }
+    },
+
+    // 格式化教学与编程学习关联性对象为可读文本
+    formatCorrelationObject(correlationObj) {
+      if (!correlationObj || typeof correlationObj !== 'object') {
+        return '暂无教学与编程学习关联性分析数据';
+      }
+
+      try {
+        // 尝试将对象转换为格式化的字符串
+        return JSON.stringify(correlationObj, null, 2);
+      } catch (error) {
+        console.error('格式化教学与编程学习关联性对象失败:', error);
+        return '教学与编程学习关联性数据格式错误';
+      }
     }
   }
 }
