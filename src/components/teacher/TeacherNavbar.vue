@@ -74,6 +74,16 @@
         </el-menu-item>
       </div>
 
+      <!-- 个人设置 -->
+      <div class="menu-section">
+        <div class="section-title" v-if="!isCollapse">个人设置</div>
+
+        <el-menu-item index="/teacher/profile" class="menu-item">
+          <i class="el-icon-user"></i>
+          <template #title>个人信息</template>
+        </el-menu-item>
+      </div>
+
       <!-- 将退出登录按钮修改为不使用路由导航的方式 -->
       <div class="menu-section logout-section">
         <div class="section-title" v-if="!isCollapse">系统</div>

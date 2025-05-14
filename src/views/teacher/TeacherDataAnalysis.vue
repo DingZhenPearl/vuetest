@@ -5,14 +5,17 @@
       <div class="page-header">
         <h1>教学数据分析</h1>
         <div class="header-actions">
-          <el-select v-model="selectedClass" placeholder="选择班级" @change="loadData">
-            <el-option
-              v-for="item in classList"
-              :key="item"
-              :label="item"
-              :value="item">
-            </el-option>
-          </el-select>
+          <div class="class-selector-container">
+            <span class="selector-label">当前班级：</span>
+            <el-select v-model="selectedClass" placeholder="选择班级" @change="loadData">
+              <el-option
+                v-for="item in classList"
+                :key="item"
+                :label="item"
+                :value="item">
+              </el-option>
+            </el-select>
+          </div>
           <el-button type="primary" @click="runAIAnalysis" :loading="aiLoading">
             AI分析
           </el-button>
@@ -1548,6 +1551,18 @@ export default {
 .header-actions {
   display: flex;
   gap: 10px;
+}
+
+.class-selector-container {
+  display: flex;
+  align-items: center;
+  margin-right: 10px;
+}
+
+.selector-label {
+  margin-right: 8px;
+  font-size: 14px;
+  color: #606266;
 }
 
 .loading-container {

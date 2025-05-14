@@ -44,6 +44,23 @@ def create_tables():
             )
         """)
 
+        # 创建教师个人信息表
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS edu_profiles_teacher (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                email VARCHAR(255) NOT NULL UNIQUE,
+                teacher_id VARCHAR(50),
+                department VARCHAR(100),
+                title VARCHAR(100),
+                name VARCHAR(100),
+                phone VARCHAR(20),
+                office_location VARCHAR(100),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                INDEX (email)
+            )
+        """)
+
         conn.commit()
         return True
     except mysql.connector.Error as err:
@@ -143,6 +160,93 @@ def get_profile(email):
         cursor.close()
         conn.close()
 
+def save_teacher_profile(email, teacher_id, department, title, name, phone, office_location):
+    """保存或更新教师个人信息"""
+    # 确保表已创建
+    if not create_tables():
+        return
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # 检查是否已经存在该教师的记录
+        cursor.execute("""
+            SELECT id FROM edu_profiles_teacher WHERE email = %s
+        """, (email,))
+
+        result = cursor.fetchone()
+
+        if result:
+            # 更新现有记录
+            cursor.execute("""
+                UPDATE edu_profiles_teacher
+                SET teacher_id = %s, department = %s, title = %s, name = %s, phone = %s, office_location = %s
+                WHERE email = %s
+            """, (teacher_id, department, title, name, phone, office_location, email))
+        else:
+            # 创建新记录
+            cursor.execute("""
+                INSERT INTO edu_profiles_teacher (email, teacher_id, department, title, name, phone, office_location)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """, (email, teacher_id, department, title, name, phone, office_location))
+
+        conn.commit()
+        print(json.dumps({
+            'success': True,
+            'message': "教师个人信息保存成功"
+        }))
+    except mysql.connector.Error as err:
+        print(json.dumps({
+            'success': False,
+            'message': f"保存教师个人信息失败: {str(err)}"
+        }))
+    finally:
+        cursor.close()
+        conn.close()
+
+def get_teacher_profile(email):
+    """获取教师个人信息"""
+    # 确保表已创建
+    if not create_tables():
+        return
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        cursor.execute("""
+            SELECT email, teacher_id, department, title, name, phone, office_location,
+                   created_at, updated_at
+            FROM edu_profiles_teacher
+            WHERE email = %s
+        """, (email,))
+
+        profile = cursor.fetchone()
+
+        if profile:
+            # 转换datetime对象为字符串
+            profile['created_at'] = profile['created_at'].isoformat() if profile['created_at'] else None
+            profile['updated_at'] = profile['updated_at'].isoformat() if profile['updated_at'] else None
+
+            print(json.dumps({
+                'success': True,
+                'profile': profile
+            }))
+        else:
+            print(json.dumps({
+                'success': False,
+                'message': "未找到该教师的个人信息"
+            }))
+    except mysql.connector.Error as err:
+        print(json.dumps({
+            'success': False,
+            'message': f"获取教师个人信息失败: {str(err)}"
+        }))
+    finally:
+        cursor.close()
+        conn.close()
+
 def get_class_students(class_name):
     """获取班级所有学生"""
     # 确保表已创建
@@ -219,6 +323,24 @@ if __name__ == "__main__":
             }))
             sys.exit(1)
         get_class_students(sys.argv[2])
+
+    elif operation == "save_teacher_profile":
+        if len(sys.argv) != 9:
+            print(json.dumps({
+                'success': False,
+                'message': "参数不足，需要email, teacher_id, department, title, name, phone, office_location"
+            }))
+            sys.exit(1)
+        save_teacher_profile(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6], sys.argv[7], sys.argv[8])
+
+    elif operation == "get_teacher_profile":
+        if len(sys.argv) != 3:
+            print(json.dumps({
+                'success': False,
+                'message': "参数不足，需要email"
+            }))
+            sys.exit(1)
+        get_teacher_profile(sys.argv[2])
 
     else:
         print(json.dumps({

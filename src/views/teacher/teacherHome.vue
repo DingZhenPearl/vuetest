@@ -218,6 +218,12 @@ export default {
           description: '查看教学数据分析',
           icon: 'el-icon-data-analysis',
           route: '/teacher/data-analysis'
+        },
+        {
+          title: '个人信息',
+          description: '管理个人资料',
+          icon: 'el-icon-user',
+          route: '/teacher/profile'
         }
       ],
       todos: [],
