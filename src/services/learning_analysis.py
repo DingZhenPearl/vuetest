@@ -9,6 +9,7 @@
 import sys
 import json
 import io
+import re
 import mysql.connector
 from datetime import datetime, timedelta, date
 from decimal import Decimal
@@ -224,11 +225,16 @@ def analyze_with_ai(learning_data):
 学习数据:
 {json.dumps(learning_data, indent=2, cls=CustomJSONEncoder)}
 
+请特别注意：
+1. 学习模式分析部分需要详细描述学生的学习行为特征、学习风格和解题模式，不要只返回"学习模式分析"这个标题。
+2. 分析内容应基于提供的学习数据，包括学生的解题时间、尝试次数、成功率等指标。
+3. 如果数据不足，请说明"根据现有数据，学生的学习模式显示..."，而不是只返回标题。
+
 请以JSON格式返回分析结果，格式如下:
 {{
-  "pattern": "学习模式分析",
-  "strengths": "优势领域",
-  "weaknesses": "待提升领域",
+  "pattern": "详细的学习模式分析内容，不要只写标题",
+  "strengths": "优势领域分析",
+  "weaknesses": "待提升领域分析",
   "suggestions": "学习建议"
 }}
 """
@@ -261,13 +267,104 @@ def analyze_with_ai(learning_data):
 
                 # 清理并解析JSON
                 json_match = json_match.strip()
-                behavior_analysis = json.loads(json_match)
-                print(f"成功解析AI响应为JSON", file=sys.stderr)
-                return behavior_analysis
-            except json.JSONDecodeError as je:
-                print(f"解析AI响应JSON失败: {str(je)}", file=sys.stderr)
+
+                try:
+                    # 尝试直接解析JSON
+                    behavior_analysis = json.loads(json_match)
+                    print(f"成功解析AI响应为JSON", file=sys.stderr)
+
+                    # 验证必要字段是否存在，如果不存在则添加默认值
+                    if not behavior_analysis.get('pattern'):
+                        behavior_analysis['pattern'] = "您尚未完成足够的习题，无法生成详细的学习模式分析。建议先完成一些基础习题，以便系统能够分析您的学习行为。"
+                    if not behavior_analysis.get('strengths'):
+                        behavior_analysis['strengths'] = "暂无足够数据分析您的优势领域。请完成更多习题以获取详细分析。"
+                    if not behavior_analysis.get('weaknesses'):
+                        behavior_analysis['weaknesses'] = "暂无足够数据分析您的待提升领域。请完成更多习题以获取详细分析。"
+                    if not behavior_analysis.get('suggestions'):
+                        behavior_analysis['suggestions'] = "建议从基础习题开始，逐步提高难度。定期练习，保持学习的连续性。尝试不同类型的题目，拓展知识面。"
+
+                    return behavior_analysis
+                except json.JSONDecodeError as je:
+                    print(f"直接解析JSON失败，尝试提取文本内容: {str(je)}", file=sys.stderr)
+
+                    # 如果JSON解析失败，尝试从文本中提取内容
+                    pattern = ""
+                    strengths = ""
+                    weaknesses = ""
+                    suggestions = ""
+
+                    # 提取学习模式分析
+                    pattern_match = re.search(r'学习模式分析[：:]\s*([\s\S]*?)(?=优势领域[：:]|strengths[：:]|$)', ai_response, re.IGNORECASE)
+                    if pattern_match:
+                        pattern = pattern_match.group(1).strip()
+
+                    # 如果提取的内容为空或者就是"学习模式分析"，尝试其他方式提取
+                    if not pattern or pattern == "学习模式分析":
+                        # 尝试查找"学习模式"相关内容
+                        pattern_alt_match = re.search(r'学习模式[：:]\s*([\s\S]*?)(?=优势|strengths|$)', ai_response, re.IGNORECASE)
+                        if pattern_alt_match:
+                            pattern = pattern_alt_match.group(1).strip()
+
+                    # 如果还是没有找到，尝试提取包含"学习模式"、"学习行为"或"学习风格"的段落
+                    if not pattern or pattern == "学习模式分析":
+                        paragraphs = re.split(r'\n\s*\n', ai_response)
+                        for para in paragraphs:
+                            para = para.strip()
+                            if "学习模式" in para or "学习行为" in para or "学习风格" in para:
+                                # 排除只包含标题的段落
+                                if len(para) > 10 and not para.startswith("学习模式分析"):
+                                    pattern = para
+                                    break
+
+                    # 如果仍然没有找到，尝试提取第一段非标题内容
+                    if not pattern or pattern == "学习模式分析":
+                        paragraphs = re.split(r'\n\s*\n', ai_response)
+                        for para in paragraphs:
+                            para = para.strip()
+                            # 排除只包含标题的段落
+                            if len(para) > 20 and not re.match(r'^[^：:]{1,10}[：:]', para):
+                                pattern = para
+                                break
+
+                    # 记录提取结果
+                    print(f"提取的学习模式分析内容: {pattern}", file=sys.stderr)
+
+                    # 提取优势领域
+                    strengths_match = re.search(r'优势领域[：:]\s*([\s\S]*?)(?=待提升领域[：:]|weaknesses[：:]|$)', ai_response, re.IGNORECASE)
+                    if strengths_match:
+                        strengths = strengths_match.group(1).strip()
+
+                    # 提取待提升领域
+                    weaknesses_match = re.search(r'待提升领域[：:]\s*([\s\S]*?)(?=学习建议[：:]|suggestions[：:]|$)', ai_response, re.IGNORECASE)
+                    if weaknesses_match:
+                        weaknesses = weaknesses_match.group(1).strip()
+
+                    # 提取学习建议
+                    suggestions_match = re.search(r'学习建议[：:]\s*([\s\S]*?)(?=$)', ai_response, re.IGNORECASE)
+                    if suggestions_match:
+                        suggestions = suggestions_match.group(1).strip()
+
+                    # 构建分析结果
+                    behavior_analysis = {
+                        'pattern': pattern or "您尚未完成足够的习题，无法生成详细的学习模式分析。建议先完成一些基础习题，以便系统能够分析您的学习行为。",
+                        'strengths': strengths or "暂无足够数据分析您的优势领域。请完成更多习题以获取详细分析。",
+                        'weaknesses': weaknesses or "暂无足够数据分析您的待提升领域。请完成更多习题以获取详细分析。",
+                        'suggestions': suggestions or "建议从基础习题开始，逐步提高难度。定期练习，保持学习的连续性。尝试不同类型的题目，拓展知识面。"
+                    }
+
+                    print(f"从文本中提取的分析结果: {behavior_analysis}", file=sys.stderr)
+                    return behavior_analysis
+            except Exception as e:
+                print(f"解析AI响应失败: {str(e)}", file=sys.stderr)
                 print(f"AI响应内容: {ai_response}", file=sys.stderr)
-                raise Exception(f"解析AI响应JSON失败: {str(je)}")
+
+                # 返回默认分析结果
+                return {
+                    'pattern': "您尚未完成足够的习题，无法生成详细的学习模式分析。建议先完成一些基础习题，以便系统能够分析您的学习行为。",
+                    'strengths': "暂无足够数据分析您的优势领域。请完成更多习题以获取详细分析。",
+                    'weaknesses': "暂无足够数据分析您的待提升领域。请完成更多习题以获取详细分析。",
+                    'suggestions': "建议从基础习题开始，逐步提高难度。定期练习，保持学习的连续性。尝试不同类型的题目，拓展知识面。"
+                }
         except Exception as api_err:
             print(f"调用AI接口失败: {str(api_err)}", file=sys.stderr)
             raise Exception(f"调用AI接口失败: {str(api_err)}")

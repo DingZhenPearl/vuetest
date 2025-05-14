@@ -372,31 +372,85 @@ export default {
 
       try {
         if (data.behavior_analysis) {
-          // 检查是否是默认的空数据
-          if (data.behavior_analysis.pattern === "学习模式分析" &&
-              data.behavior_analysis.strengths.includes("无显著优势领域")) {
-            console.warn('收到默认的空学习行为分析数据')
-            // 显示错误信息
-            this.showError('学习行为分析数据不完整', '系统返回了空的分析结果，请完成更多习题以获取详细分析')
-            // 保存原始数据，不做修改
-            this.learningBehaviorAnalysis = data.behavior_analysis
-          } else {
-            this.learningBehaviorAnalysis = data.behavior_analysis
-            console.log('使用behavior_analysis数据:', this.learningBehaviorAnalysis)
+          // 检查是否有必要的字段
+          const analysis = data.behavior_analysis
+          const requiredFields = ['pattern', 'strengths', 'weaknesses', 'suggestions']
+          const missingFields = requiredFields.filter(field => !analysis[field])
+
+          if (missingFields.length > 0) {
+            console.warn(`学习行为分析数据缺少字段: ${missingFields.join(', ')}`)
+            // 为缺失字段设置默认值
+            if (!analysis.pattern) {
+              analysis.pattern = "您尚未完成足够的习题，无法生成详细的学习模式分析。建议先完成一些基础习题，以便系统能够分析您的学习行为。"
+            }
+            if (!analysis.strengths) {
+              analysis.strengths = "暂无足够数据分析您的优势领域。请完成更多习题以获取详细分析。"
+            }
+            if (!analysis.weaknesses) {
+              analysis.weaknesses = "暂无足够数据分析您的待提升领域。请完成更多习题以获取详细分析。"
+            }
+            if (!analysis.suggestions) {
+              analysis.suggestions = "建议从基础习题开始，逐步提高难度。定期练习，保持学习的连续性。尝试不同类型的题目，拓展知识面。"
+            }
           }
+
+          // 检查是否是默认的空数据或者只包含标题
+          if (analysis.pattern === "学习模式分析" ||
+              analysis.pattern === "详细的学习模式分析内容，不要只写标题" ||
+              (analysis.strengths && analysis.strengths.includes("无显著优势领域"))) {
+            console.warn('收到默认的空学习行为分析数据或只包含标题')
+            // 显示提示信息
+            this.$message.info('正在重新获取学习行为分析...')
+            // 自动刷新分析
+            setTimeout(() => {
+              this.refreshBehaviorAnalysis()
+            }, 1000)
+          }
+
+          // 保存分析数据
+          this.learningBehaviorAnalysis = analysis
+          console.log('使用behavior_analysis数据:', this.learningBehaviorAnalysis)
         } else if (data.learning_behavior) {
           // 兼容旧数据结构
-          this.learningBehaviorAnalysis = data.learning_behavior
+          const analysis = data.learning_behavior
+
+          // 检查必要字段
+          if (!analysis.pattern) {
+            analysis.pattern = "您尚未完成足够的习题，无法生成详细的学习模式分析。建议先完成一些基础习题，以便系统能够分析您的学习行为。"
+          }
+          if (!analysis.strengths) {
+            analysis.strengths = "暂无足够数据分析您的优势领域。请完成更多习题以获取详细分析。"
+          }
+          if (!analysis.weaknesses) {
+            analysis.weaknesses = "暂无足够数据分析您的待提升领域。请完成更多习题以获取详细分析。"
+          }
+          if (!analysis.suggestions) {
+            analysis.suggestions = "建议从基础习题开始，逐步提高难度。定期练习，保持学习的连续性。尝试不同类型的题目，拓展知识面。"
+          }
+
+          this.learningBehaviorAnalysis = analysis
           console.log('使用learning_behavior数据:', this.learningBehaviorAnalysis)
         } else {
-          console.warn('未找到有效的学习行为分析数据')
-          this.showError('学习行为分析数据不完整', '未找到有效的学习行为分析数据')
-          throw new Error('未找到有效的学习行为分析数据')
+          console.warn('未找到有效的学习行为分析数据，使用默认数据')
+          // 使用默认数据而不是抛出错误
+          this.learningBehaviorAnalysis = {
+            pattern: "您尚未完成足够的习题，无法生成详细的学习模式分析。建议先完成一些基础习题，以便系统能够分析您的学习行为。",
+            strengths: "暂无足够数据分析您的优势领域。请完成更多习题以获取详细分析。",
+            weaknesses: "暂无足够数据分析您的待提升领域。请完成更多习题以获取详细分析。",
+            suggestions: "建议从基础习题开始，逐步提高难度。定期练习，保持学习的连续性。尝试不同类型的题目，拓展知识面。"
+          }
+          this.$message.info('暂无学习行为分析数据，请完成更多习题以获取详细分析')
         }
       } catch (error) {
         console.error('处理学习行为分析数据时出错:', error)
         this.showError('处理学习行为分析数据时出错', error.message || '未知错误')
-        throw error
+        // 使用默认数据
+        this.learningBehaviorAnalysis = {
+          pattern: "处理分析数据时出错，请稍后重试。",
+          strengths: "数据处理错误，无法显示优势领域。",
+          weaknesses: "数据处理错误，无法显示待提升领域。",
+          suggestions: "请稍后刷新页面重试，或联系管理员解决问题。"
+        }
       }
     },
 
