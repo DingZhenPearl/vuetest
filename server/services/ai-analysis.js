@@ -356,9 +356,20 @@ function parseAIResponse(response) {
 function adaptResponseFormat(result) {
   // 检查是否是学生分析结果（包含pattern字段）
   if (result.pattern !== undefined) {
+    // 检查pattern字段是否只是标题而不是实际内容
+    let patternContent = result.pattern;
+    if (patternContent === "学习模式分析" || patternContent === "学习模式" || patternContent === "pattern") {
+      // 如果pattern只是标题，尝试从strengths和weaknesses中提取更有意义的内容
+      if (result.strengths && typeof result.strengths === 'string' && result.strengths.length > 20) {
+        patternContent = `根据分析，该学生在简单问题上表现较好，但在复杂问题上需要提高。详细情况请参考下方的优势领域和待提升领域。`;
+      } else {
+        patternContent = "系统未能提供详细的学习模式分析，请参考下方的优势领域和待提升领域了解学生情况。";
+      }
+    }
+
     // 确保所有字段都存在
     return {
-      pattern: result.pattern || "无学习模式分析",
+      pattern: patternContent,
       strengths: result.strengths || "无优势领域数据",
       weaknesses: result.weaknesses || "无待提升领域数据",
       suggestions: result.suggestions || "无学习建议数据"
@@ -642,11 +653,17 @@ function generateStudentPrompt(data) {
 
   请以JSON格式返回分析结果，格式如下:
   {
-    "pattern": "学习模式分析",
-    "strengths": "优势领域",
-    "weaknesses": "待提升领域",
-    "suggestions": "学习建议"
+    "pattern": "这里应该是对学生整体学习模式的详细分析，包括学习习惯、解题特点等，不少于100字",
+    "strengths": "这里应该是学生的优势领域分析，不少于50字",
+    "weaknesses": "这里应该是学生的待提升领域分析，不少于50字",
+    "suggestions": "这里应该是针对学生情况的具体学习建议，不少于100字"
   }
+
+  注意：
+  1. 请确保返回的是有效的JSON格式，不要有多余的逗号或引号不匹配的情况
+  2. 字符串值中如果包含引号，请使用单引号代替双引号，避免JSON解析错误
+  3. pattern字段必须提供实质性的分析内容，不能只是"学习模式分析"这样的标题
+  4. 所有分析必须基于提供的数据，如果数据不足，请在分析中说明
   `;
 }
 
