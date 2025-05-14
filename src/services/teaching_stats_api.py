@@ -40,129 +40,112 @@ def get_teaching_stats():
         conn = mysql.connector.connect(**DB_CONFIG)
         cursor = conn.cursor(dictionary=True)
 
+        # 获取学生总数
+        cursor.execute("""
+            SELECT COUNT(*) as total_students
+            FROM edu_profiles_student
+        """)
+        total_students_result = cursor.fetchone()
+        total_students = total_students_result['total_students'] if total_students_result else 0
+
+        # 获取上个月学生总数，计算增长率
+        last_month = datetime.now() - timedelta(days=30)
+        student_growth = 0
+
         try:
-            # 获取学生总数
             cursor.execute("""
-                SELECT COUNT(*) as total_students
+                SELECT COUNT(*) as last_month_students
                 FROM edu_profiles_student
-            """)
-            total_students_result = cursor.fetchone()
-            total_students = total_students_result['total_students'] if total_students_result else 0
+                WHERE created_at < %s
+            """, (last_month,))
+            last_month_result = cursor.fetchone()
+            last_month_students = last_month_result['last_month_students'] if last_month_result else 0
 
-            # 获取上个月学生总数，计算增长率
-            last_month = datetime.now() - timedelta(days=30)
-            try:
-                cursor.execute("""
-                    SELECT COUNT(*) as last_month_students
-                    FROM edu_profiles_student
-                    WHERE created_at < %s
-                """, (last_month,))
-                last_month_result = cursor.fetchone()
-                last_month_students = last_month_result['last_month_students'] if last_month_result else 0
-            except Exception as inner_e:
-                print(f"获取上个月学生总数失败: {str(inner_e)}", file=sys.stderr)
-                last_month_students = total_students - random.randint(5, 15)  # 生成一个合理的增长
-                if last_month_students < 0:
-                    last_month_students = 0
-
-            student_growth = 0
             if last_month_students > 0:
                 student_growth = round(((total_students - last_month_students) / last_month_students) * 100, 1)
+        except Exception as inner_e:
+            print(f"获取上个月学生总数失败: {str(inner_e)}", file=sys.stderr)
+            # 不使用随机数据，保持增长率为0
 
-            # 获取活跃学生数（过去7天有提交记录的学生）
+        # 获取活跃学生数（过去7天有提交记录的学生）
+        cursor.execute("""
+            SELECT COUNT(DISTINCT student_id) as active_students
+            FROM edu_coding_submissions
+            WHERE submission_time >= %s
+        """, (datetime.now() - timedelta(days=7),))
+        active_students_result = cursor.fetchone()
+        active_students = active_students_result['active_students'] if active_students_result else 0
+
+        # 获取上周活跃学生数，计算增长率
+        active_growth = 0
+        cursor.execute("""
+            SELECT COUNT(DISTINCT student_id) as last_week_active
+            FROM edu_coding_submissions
+            WHERE submission_time >= %s AND submission_time < %s
+        """, (datetime.now() - timedelta(days=14), datetime.now() - timedelta(days=7)))
+        last_week_result = cursor.fetchone()
+        last_week_active = last_week_result['last_week_active'] if last_week_result else 0
+
+        if last_week_active > 0:
+            active_growth = round(((active_students - last_week_active) / last_week_active) * 100, 1)
+
+        # 获取题目总数
+        cursor.execute("""
+            SELECT COUNT(*) as total_problems
+            FROM edu_problems
+        """)
+        total_problems_result = cursor.fetchone()
+        total_problems = total_problems_result['total_problems'] if total_problems_result else 0
+
+        # 获取上个月题目总数，计算增长率
+        problem_growth = 0
+        try:
             cursor.execute("""
-                SELECT COUNT(DISTINCT student_id) as active_students
-                FROM edu_coding_submissions
-                WHERE submission_time >= %s
-            """, (datetime.now() - timedelta(days=7),))
-            active_students_result = cursor.fetchone()
-            active_students = active_students_result['active_students'] if active_students_result else 0
-
-            # 获取上周活跃学生数，计算增长率
-            cursor.execute("""
-                SELECT COUNT(DISTINCT student_id) as last_week_active
-                FROM edu_coding_submissions
-                WHERE submission_time >= %s AND submission_time < %s
-            """, (datetime.now() - timedelta(days=14), datetime.now() - timedelta(days=7)))
-            last_week_result = cursor.fetchone()
-            last_week_active = last_week_result['last_week_active'] if last_week_result else 0
-
-            active_growth = 0
-            if last_week_active > 0:
-                active_growth = round(((active_students - last_week_active) / last_week_active) * 100, 1)
-
-            # 获取题目总数
-            cursor.execute("""
-                SELECT COUNT(*) as total_problems
+                SELECT COUNT(*) as last_month_problems
                 FROM edu_problems
-            """)
-            total_problems_result = cursor.fetchone()
-            total_problems = total_problems_result['total_problems'] if total_problems_result else 0
+                WHERE created_at < %s
+            """, (last_month,))
+            last_month_problems_result = cursor.fetchone()
+            last_month_problems = last_month_problems_result['last_month_problems'] if last_month_problems_result else 0
 
-            # 获取上个月题目总数，计算增长率
-            try:
-                cursor.execute("""
-                    SELECT COUNT(*) as last_month_problems
-                    FROM edu_problems
-                    WHERE created_at < %s
-                """, (last_month,))
-                last_month_problems_result = cursor.fetchone()
-                last_month_problems = last_month_problems_result['last_month_problems'] if last_month_problems_result else 0
-            except Exception as inner_e:
-                print(f"获取上个月题目总数失败: {str(inner_e)}", file=sys.stderr)
-                last_month_problems = total_problems - random.randint(2, 8)  # 生成一个合理的增长
-                if last_month_problems < 0:
-                    last_month_problems = 0
-
-            problem_growth = 0
             if last_month_problems > 0:
                 problem_growth = round(((total_problems - last_month_problems) / last_month_problems) * 100, 1)
+        except Exception as inner_e:
+            print(f"获取上个月题目总数失败: {str(inner_e)}", file=sys.stderr)
+            # 不使用随机数据，保持增长率为0
 
-            # 获取提交总数
-            cursor.execute("""
-                SELECT COUNT(*) as total_submissions
-                FROM edu_coding_submissions
-            """)
-            total_submissions_result = cursor.fetchone()
-            total_submissions = total_submissions_result['total_submissions'] if total_submissions_result else 0
+        # 获取提交总数
+        cursor.execute("""
+            SELECT COUNT(*) as total_submissions
+            FROM edu_coding_submissions
+        """)
+        total_submissions_result = cursor.fetchone()
+        total_submissions = total_submissions_result['total_submissions'] if total_submissions_result else 0
 
-            # 获取上周提交总数，计算增长率
-            cursor.execute("""
-                SELECT COUNT(*) as last_week_submissions
-                FROM edu_coding_submissions
-                WHERE submission_time < %s
-            """, (datetime.now() - timedelta(days=7),))
-            last_week_submissions_result = cursor.fetchone()
-            last_week_submissions = last_week_submissions_result['last_week_submissions'] if last_week_submissions_result else 0
+        # 获取上周提交总数，计算增长率
+        submission_growth = 0
+        cursor.execute("""
+            SELECT COUNT(*) as last_week_submissions
+            FROM edu_coding_submissions
+            WHERE submission_time < %s
+        """, (datetime.now() - timedelta(days=7),))
+        last_week_submissions_result = cursor.fetchone()
+        last_week_submissions = last_week_submissions_result['last_week_submissions'] if last_week_submissions_result else 0
 
-            submission_growth = 0
-            if last_week_submissions > 0:
-                submission_growth = round(((total_submissions - last_week_submissions) / last_week_submissions) * 100, 1)
+        if last_week_submissions > 0:
+            submission_growth = round(((total_submissions - last_week_submissions) / last_week_submissions) * 100, 1)
 
-            # 构建结果
-            result = {
-                'total_students': total_students,
-                'student_growth': student_growth,
-                'active_students': active_students,
-                'active_growth': active_growth,
-                'total_problems': total_problems,
-                'problem_growth': problem_growth,
-                'total_submissions': total_submissions,
-                'submission_growth': submission_growth
-            }
-        except Exception as e:
-            print(f"获取统计数据失败，使用默认值: {str(e)}", file=sys.stderr)
-            # 使用默认值
-            result = {
-                'total_students': 120,
-                'student_growth': 5.2,
-                'active_students': 78,
-                'active_growth': 12.5,
-                'total_problems': 45,
-                'problem_growth': 8.3,
-                'total_submissions': 1254,
-                'submission_growth': 15.7
-            }
+        # 构建结果
+        result = {
+            'total_students': total_students,
+            'student_growth': student_growth,
+            'active_students': active_students,
+            'active_growth': active_growth,
+            'total_problems': total_problems,
+            'problem_growth': problem_growth,
+            'total_submissions': total_submissions,
+            'submission_growth': submission_growth
+        }
 
         # 关闭数据库连接
         cursor.close()
@@ -238,17 +221,9 @@ def get_activity_trend(time_range='week'):
                 index = dates.index(question_date)
                 questions[index] = result['question_count']
 
-        # 生成随机登录数据（因为没有edu_user_logins表）
-        logins = []
-        for i in range(days):
-            # 生成一个随机值，但与提交数量相关
-            login_count = submissions[i] + random.randint(5, 15)
-            logins.append(login_count)
-
-        # 构建结果
+        # 构建结果 - 不包含登录数据，因为没有真实数据
         result = {
             'dates': dates,
-            'logins': logins,
             'submissions': submissions,
             'questions': questions
         }
@@ -271,112 +246,192 @@ def get_activity_trend(time_range='week'):
         }), file=sys.stderr)
 
 def get_problem_completion():
-    """获取题目完成情况数据"""
+    """获取题目完成情况数据 - 更科学的统计方法"""
     try:
         # 连接数据库
         conn = mysql.connector.connect(**DB_CONFIG)
         cursor = conn.cursor(dictionary=True)
 
-        try:
-            # 获取题目难度分类
+        # 获取题目难度分类
+        cursor.execute("""
+            SELECT DISTINCT difficulty
+            FROM edu_problems
+            ORDER BY
+                CASE
+                    WHEN difficulty = 'easy' THEN 1
+                    WHEN difficulty = 'medium' THEN 2
+                    WHEN difficulty = 'hard' THEN 3
+                    WHEN difficulty = '1' THEN 1
+                    WHEN difficulty = '2' THEN 2
+                    WHEN difficulty = '3' THEN 3
+                    ELSE 4
+                END
+        """)
+
+        difficulty_results = cursor.fetchall()
+
+        if not difficulty_results:
+            # 如果没有获取到难度分类，返回错误
+            cursor.close()
+            conn.close()
+            print(json.dumps({
+                'success': False,
+                'message': '没有找到题目难度分类数据'
+            }), file=sys.stderr)
+            return
+
+        # 获取活跃学生总数（有提交记录的学生）
+        cursor.execute("""
+            SELECT COUNT(DISTINCT student_id) as active_students
+            FROM edu_coding_submissions
+        """)
+        active_students_result = cursor.fetchone()
+        active_students = active_students_result['active_students'] if active_students_result else 0
+
+        if active_students == 0:
+            # 如果没有活跃学生，返回错误
+            cursor.close()
+            conn.close()
+            print(json.dumps({
+                'success': False,
+                'message': '没有找到活跃学生数据'
+            }), file=sys.stderr)
+            return
+
+        # 准备结果数据结构
+        difficulties = []
+        difficulty_map = {}  # 用于映射难度名称
+
+        # 统计指标
+        student_completion_rates = []  # 学生平均完成率
+        problem_attempt_rates = []     # 题目尝试率
+        success_rates = []             # 提交成功率
+        avg_attempts_per_problem = []  # 每题平均尝试次数
+
+        for i, difficulty in enumerate(difficulty_results):
+            diff = difficulty['difficulty']
+
+            # 转换难度显示
+            difficulty_name = diff
+            if diff == 'easy' or diff == '1':
+                difficulty_name = '简单'
+            elif diff == 'medium' or diff == '2':
+                difficulty_name = '中等'
+            elif diff == 'hard' or diff == '3':
+                difficulty_name = '困难'
+
+            difficulties.append(difficulty_name)
+            difficulty_map[diff] = difficulty_name
+
+            # 获取该难度的题目总数
             cursor.execute("""
-                SELECT DISTINCT difficulty
+                SELECT COUNT(*) as total
                 FROM edu_problems
-                ORDER BY
-                    CASE
-                        WHEN difficulty = 'easy' THEN 1
-                        WHEN difficulty = 'medium' THEN 2
-                        WHEN difficulty = 'hard' THEN 3
-                        WHEN difficulty = '1' THEN 1
-                        WHEN difficulty = '2' THEN 2
-                        WHEN difficulty = '3' THEN 3
-                        ELSE 4
-                    END
-            """)
+                WHERE difficulty = %s
+            """, (diff,))
 
-            difficulty_results = cursor.fetchall()
+            total_result = cursor.fetchone()
+            total_problems = total_result['total'] if total_result else 0
 
-            if not difficulty_results:
-                # 如果没有获取到难度分类，使用默认分类
-                difficulties = ['简单', '中等', '困难', '挑战']
-                completion = [85, 65, 45, 25]
-                attempt = [95, 80, 60, 40]
+            if total_problems == 0:
+                # 如果该难度没有题目，添加0值
+                student_completion_rates.append(0)
+                problem_attempt_rates.append(0)
+                success_rates.append(0)
+                avg_attempts_per_problem.append(0)
+                continue
+
+            # 1. 学生平均完成率 - 每个学生平均完成了该难度多少比例的题目
+            cursor.execute("""
+                SELECT
+                    student_id,
+                    COUNT(DISTINCT CASE WHEN submit_result = 'success' THEN problem_id END) as solved_problems
+                FROM
+                    edu_coding_submissions s
+                JOIN
+                    edu_problems p ON s.problem_id = p.id
+                WHERE
+                    p.difficulty = %s
+                GROUP BY
+                    student_id
+            """, (diff,))
+
+            student_results = cursor.fetchall()
+            if not student_results:
+                student_completion_rates.append(0)
             else:
-                difficulties = []
-                for result in difficulty_results:
-                    difficulty = result['difficulty']
-                    # 转换难度显示
-                    if difficulty == 'easy' or difficulty == '1':
-                        difficulties.append('简单')
-                    elif difficulty == 'medium' or difficulty == '2':
-                        difficulties.append('中等')
-                    elif difficulty == 'hard' or difficulty == '3':
-                        difficulties.append('困难')
-                    else:
-                        difficulties.append(difficulty)
+                total_completion_rate = 0
+                for student in student_results:
+                    student_completion = (student['solved_problems'] / total_problems) * 100
+                    total_completion_rate += student_completion
 
-                # 获取每个难度的完成率和尝试率
-                completion = []
-                attempt = []
+                avg_completion_rate = round(total_completion_rate / len(student_results), 1)
+                student_completion_rates.append(avg_completion_rate)
 
-                for i, difficulty in enumerate(difficulty_results):
-                    diff = difficulty['difficulty']
+            # 2. 题目尝试率 - 该难度有多少比例的题目至少被一名学生尝试
+            cursor.execute("""
+                SELECT COUNT(DISTINCT p.id) as attempted_problems
+                FROM edu_problems p
+                JOIN edu_coding_submissions s ON p.id = s.problem_id
+                WHERE p.difficulty = %s
+            """, (diff,))
 
-                    # 获取该难度的题目总数
-                    cursor.execute("""
-                        SELECT COUNT(*) as total
-                        FROM edu_problems
-                        WHERE difficulty = %s
-                    """, (diff,))
+            attempted_result = cursor.fetchone()
+            attempted_problems = attempted_result['attempted_problems'] if attempted_result else 0
+            attempt_rate = round((attempted_problems / total_problems) * 100, 1) if total_problems > 0 else 0
+            problem_attempt_rates.append(attempt_rate)
 
-                    total_result = cursor.fetchone()
-                    total = total_result['total'] if total_result else 0
+            # 3. 提交成功率 - 该难度所有提交中成功的比例
+            cursor.execute("""
+                SELECT
+                    COUNT(*) as total_submissions,
+                    SUM(CASE WHEN submit_result = 'success' THEN 1 ELSE 0 END) as successful_submissions
+                FROM
+                    edu_coding_submissions s
+                JOIN
+                    edu_problems p ON s.problem_id = p.id
+                WHERE
+                    p.difficulty = %s
+            """, (diff,))
 
-                    if total == 0:
-                        completion.append(0)
-                        attempt.append(0)
-                        continue
+            submission_result = cursor.fetchone()
+            if submission_result and submission_result['total_submissions'] > 0:
+                success_rate = round((submission_result['successful_submissions'] / submission_result['total_submissions']) * 100, 1)
+                success_rates.append(success_rate)
+            else:
+                success_rates.append(0)
 
-                    # 获取完成的题目数（至少有一个学生成功提交）
-                    cursor.execute("""
-                        SELECT COUNT(DISTINCT p.id) as completed
-                        FROM edu_problems p
-                        JOIN edu_coding_submissions s ON p.id = s.problem_id
-                        WHERE p.difficulty = %s AND s.submit_result = 'success'
-                    """, (diff,))
+            # 4. 每题平均尝试次数
+            cursor.execute("""
+                SELECT
+                    p.id,
+                    COUNT(*) as attempts
+                FROM
+                    edu_problems p
+                JOIN
+                    edu_coding_submissions s ON p.id = s.problem_id
+                WHERE
+                    p.difficulty = %s
+                GROUP BY
+                    p.id
+            """, (diff,))
 
-                    completed_result = cursor.fetchone()
-                    completed = completed_result['completed'] if completed_result else 0
-
-                    # 获取尝试的题目数（至少有一个学生尝试提交）
-                    cursor.execute("""
-                        SELECT COUNT(DISTINCT p.id) as attempted
-                        FROM edu_problems p
-                        JOIN edu_coding_submissions s ON p.id = s.problem_id
-                        WHERE p.difficulty = %s
-                    """, (diff,))
-
-                    attempted_result = cursor.fetchone()
-                    attempted = attempted_result['attempted'] if attempted_result else 0
-
-                    # 计算完成率和尝试率
-                    completion_rate = round((completed / total) * 100, 1) if total > 0 else 0
-                    attempt_rate = round((attempted / total) * 100, 1) if total > 0 else 0
-
-                    completion.append(completion_rate)
-                    attempt.append(attempt_rate)
-        except Exception as inner_e:
-            print(f"获取题目难度分类失败: {str(inner_e)}", file=sys.stderr)
-            # 使用默认分类
-            difficulties = ['简单', '中等', '困难', '挑战']
-            completion = [85, 65, 45, 25]
-            attempt = [95, 80, 60, 40]
+            problem_attempts = cursor.fetchall()
+            if not problem_attempts:
+                avg_attempts_per_problem.append(0)
+            else:
+                total_attempts = sum(p['attempts'] for p in problem_attempts)
+                avg_attempts = round(total_attempts / len(problem_attempts), 1)
+                avg_attempts_per_problem.append(avg_attempts)
 
         # 构建结果
         result = {
             'difficulties': difficulties,
-            'completion': completion,
-            'attempt': attempt
+            'student_completion_rates': student_completion_rates,  # 学生平均完成率
+            'problem_attempt_rates': problem_attempt_rates,        # 题目尝试率
+            'success_rates': success_rates,                        # 提交成功率
+            'avg_attempts_per_problem': avg_attempts_per_problem,  # 每题平均尝试次数
+            'active_students': active_students                     # 活跃学生总数
         }
 
         # 关闭数据库连接
@@ -477,37 +532,6 @@ def get_todos():
                     print(f"获取学生姓名失败: {str(inner_e)}", file=sys.stderr)
         except Exception as e:
             print(f"获取提交记录失败: {str(e)}", file=sys.stderr)
-
-        # 如果没有获取到任何待办事项，添加一些示例
-        if not todos:
-            # 创建一些示例待办事项
-            current_time = datetime.now()
-            todos = [
-                {
-                    'id': 1,
-                    'type': 'question',
-                    'title': '回答学生提问',
-                    'description': '张三: 如何解决链表循环问题？',
-                    'time': current_time - timedelta(hours=2),
-                    'route': '/teacher/answer'
-                },
-                {
-                    'id': 2,
-                    'type': 'submission',
-                    'title': '查看学生提交',
-                    'description': '李四 完成了 二叉树遍历',
-                    'time': current_time - timedelta(hours=5),
-                    'route': '/teacher/data-analysis'
-                },
-                {
-                    'id': 3,
-                    'type': 'question',
-                    'title': '回答学生提问',
-                    'description': '王五: 递归算法的时间复杂度如何计算？',
-                    'time': current_time - timedelta(hours=8),
-                    'route': '/teacher/answer'
-                }
-            ]
 
         # 按时间排序
         todos.sort(key=lambda x: x['time'], reverse=True)

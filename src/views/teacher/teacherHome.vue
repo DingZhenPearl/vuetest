@@ -218,18 +218,6 @@ export default {
           description: '查看教学数据分析',
           icon: 'el-icon-data-analysis',
           route: '/teacher/data-analysis'
-        },
-        {
-          title: '学生详情',
-          description: '查看学生详细信息',
-          icon: 'el-icon-user',
-          route: '/teacher/student-detail'
-        },
-        {
-          title: '系统设置',
-          description: '管理系统设置',
-          icon: 'el-icon-setting',
-          route: '/teacher/settings'
         }
       ],
       todos: [],
@@ -422,60 +410,107 @@ export default {
         if (response.data.success) {
           this.renderProblemChart(response.data.data);
         } else {
-          this.renderEmptyProblemChart();
+          // 显示具体错误信息
+          const errorMsg = response.data.message || '获取题目完成情况数据失败';
+          this.renderErrorProblemChart(errorMsg);
         }
       } catch (error) {
         console.error('获取题目完成情况数据失败:', error);
-        this.renderEmptyProblemChart();
+        this.renderErrorProblemChart('获取题目完成情况数据失败: ' + (error.message || '未知错误'));
       }
     },
 
     // 渲染题目完成情况图表
     renderProblemChart(data) {
       // 如果没有数据，显示空图表
-      if (!data || !data.difficulties || data.difficulties.length === 0) {
+      if (!data || !data.difficulties || data.difficulties.length === 0 ||
+          !data.student_completion_rates || !data.problem_attempt_rates ||
+          !data.success_rates || !data.avg_attempts_per_problem ||
+          data.student_completion_rates.length === 0 || data.problem_attempt_rates.length === 0) {
         this.renderEmptyProblemChart();
         return;
       }
 
       // 准备图表数据
       const difficulties = data.difficulties;
-      const completion = data.completion || [];
-      const attempt = data.attempt || [];
+      const studentCompletionRates = data.student_completion_rates;
+      const problemAttemptRates = data.problem_attempt_rates;
+      const successRates = data.success_rates;
+      const avgAttemptsPerProblem = data.avg_attempts_per_problem;
+      const activeStudents = data.active_students || 0;
 
       // 设置图表选项
       const option = {
+        title: {
+          text: `活跃学生数: ${activeStudents}`,
+          subtext: '基于真实学生数据的科学统计',
+          left: 'center',
+          top: 0,
+          textStyle: {
+            fontSize: 14
+          },
+          subtextStyle: {
+            fontSize: 12
+          }
+        },
         tooltip: {
           trigger: 'axis',
           axisPointer: {
             type: 'shadow'
+          },
+          formatter: function(params) {
+            let result = params[0].name + '<br/>';
+            params.forEach(param => {
+              let marker = param.marker;
+              let seriesName = param.seriesName;
+              let value = param.value;
+              let unit = seriesName === '平均尝试次数' ? '次' : '%';
+              result += marker + ' ' + seriesName + ': ' + value + unit + '<br/>';
+            });
+            return result;
           }
         },
         legend: {
-          data: ['完成率', '尝试率']
+          data: ['学生平均完成率', '题目尝试率', '提交成功率', '平均尝试次数'],
+          top: 30
         },
         grid: {
           left: '3%',
           right: '4%',
           bottom: '3%',
+          top: 80,
           containLabel: true
         },
         xAxis: {
           type: 'category',
           data: difficulties
         },
-        yAxis: {
-          type: 'value',
-          max: 100,
-          axisLabel: {
-            formatter: '{value}%'
+        yAxis: [
+          {
+            type: 'value',
+            name: '百分比',
+            min: 0,
+            max: 100,
+            position: 'left',
+            axisLabel: {
+              formatter: '{value}%'
+            }
+          },
+          {
+            type: 'value',
+            name: '次数',
+            min: 0,
+            position: 'right',
+            axisLabel: {
+              formatter: '{value}次'
+            }
           }
-        },
+        ],
         series: [
           {
-            name: '完成率',
+            name: '学生平均完成率',
             type: 'bar',
-            data: completion,
+            data: studentCompletionRates,
             itemStyle: {
               color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
                 { offset: 0, color: '#83bff6' },
@@ -485,15 +520,43 @@ export default {
             }
           },
           {
-            name: '尝试率',
+            name: '题目尝试率',
             type: 'bar',
-            data: attempt,
+            data: problemAttemptRates,
             itemStyle: {
               color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
                 { offset: 0, color: '#ffb980' },
                 { offset: 0.5, color: '#ff7f50' },
                 { offset: 1, color: '#d94e20' }
               ])
+            }
+          },
+          {
+            name: '提交成功率',
+            type: 'line',
+            data: successRates,
+            symbol: 'circle',
+            symbolSize: 8,
+            lineStyle: {
+              width: 3
+            },
+            itemStyle: {
+              color: '#67c23a'
+            }
+          },
+          {
+            name: '平均尝试次数',
+            type: 'line',
+            yAxisIndex: 1,
+            data: avgAttemptsPerProblem,
+            symbol: 'diamond',
+            symbolSize: 8,
+            lineStyle: {
+              width: 3,
+              type: 'dashed'
+            },
+            itemStyle: {
+              color: '#e6a23c'
             }
           }
         ]
@@ -507,7 +570,7 @@ export default {
     renderEmptyProblemChart() {
       const option = {
         title: {
-          text: '暂无题目完成情况数据，请联系管理员',
+          text: '暂无题目完成情况数据',
           left: 'center',
           top: 'center',
           textStyle: {
@@ -523,28 +586,44 @@ export default {
           }
         },
         legend: {
-          data: ['完成率', '尝试率']
+          data: ['学生平均完成率', '题目尝试率', '提交成功率', '平均尝试次数'],
+          top: 30
         },
         grid: {
           left: '3%',
           right: '4%',
           bottom: '3%',
+          top: 80,
           containLabel: true
         },
         xAxis: {
           type: 'category',
           data: []
         },
-        yAxis: {
-          type: 'value',
-          max: 100,
-          axisLabel: {
-            formatter: '{value}%'
+        yAxis: [
+          {
+            type: 'value',
+            name: '百分比',
+            min: 0,
+            max: 100,
+            position: 'left',
+            axisLabel: {
+              formatter: '{value}%'
+            }
+          },
+          {
+            type: 'value',
+            name: '次数',
+            min: 0,
+            position: 'right',
+            axisLabel: {
+              formatter: '{value}次'
+            }
           }
-        },
+        ],
         series: [
           {
-            name: '完成率',
+            name: '学生平均完成率',
             type: 'bar',
             data: [],
             itemStyle: {
@@ -556,7 +635,7 @@ export default {
             }
           },
           {
-            name: '尝试率',
+            name: '题目尝试率',
             type: 'bar',
             data: [],
             itemStyle: {
@@ -566,6 +645,149 @@ export default {
                 { offset: 1, color: '#d94e20' }
               ])
             }
+          },
+          {
+            name: '提交成功率',
+            type: 'line',
+            data: [],
+            symbol: 'circle',
+            symbolSize: 8,
+            lineStyle: {
+              width: 3
+            },
+            itemStyle: {
+              color: '#67c23a'
+            }
+          },
+          {
+            name: '平均尝试次数',
+            type: 'line',
+            yAxisIndex: 1,
+            data: [],
+            symbol: 'diamond',
+            symbolSize: 8,
+            lineStyle: {
+              width: 3,
+              type: 'dashed'
+            },
+            itemStyle: {
+              color: '#e6a23c'
+            }
+          }
+        ]
+      };
+
+      this.problemChart.setOption(option);
+      this.$message.warning('暂无题目完成情况数据');
+    },
+
+    // 渲染错误题目完成情况图表
+    renderErrorProblemChart(errorMsg) {
+      const option = {
+        title: {
+          text: '获取数据失败',
+          left: 'center',
+          top: 'center',
+          textStyle: {
+            color: '#f56c6c',
+            fontSize: 16,
+            fontWeight: 'normal'
+          }
+        },
+        tooltip: {
+          trigger: 'axis',
+          axisPointer: {
+            type: 'shadow'
+          }
+        },
+        legend: {
+          data: ['学生平均完成率', '题目尝试率', '提交成功率', '平均尝试次数'],
+          top: 30
+        },
+        grid: {
+          left: '3%',
+          right: '4%',
+          bottom: '3%',
+          top: 80,
+          containLabel: true
+        },
+        xAxis: {
+          type: 'category',
+          data: []
+        },
+        yAxis: [
+          {
+            type: 'value',
+            name: '百分比',
+            min: 0,
+            max: 100,
+            position: 'left',
+            axisLabel: {
+              formatter: '{value}%'
+            }
+          },
+          {
+            type: 'value',
+            name: '次数',
+            min: 0,
+            position: 'right',
+            axisLabel: {
+              formatter: '{value}次'
+            }
+          }
+        ],
+        series: [
+          {
+            name: '学生平均完成率',
+            type: 'bar',
+            data: [],
+            itemStyle: {
+              color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                { offset: 0, color: '#83bff6' },
+                { offset: 0.5, color: '#188df0' },
+                { offset: 1, color: '#0d47a1' }
+              ])
+            }
+          },
+          {
+            name: '题目尝试率',
+            type: 'bar',
+            data: [],
+            itemStyle: {
+              color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                { offset: 0, color: '#ffb980' },
+                { offset: 0.5, color: '#ff7f50' },
+                { offset: 1, color: '#d94e20' }
+              ])
+            }
+          },
+          {
+            name: '提交成功率',
+            type: 'line',
+            data: [],
+            symbol: 'circle',
+            symbolSize: 8,
+            lineStyle: {
+              width: 3
+            },
+            itemStyle: {
+              color: '#67c23a'
+            }
+          },
+          {
+            name: '平均尝试次数',
+            type: 'line',
+            yAxisIndex: 1,
+            data: [],
+            symbol: 'diamond',
+            symbolSize: 8,
+            lineStyle: {
+              width: 3,
+              type: 'dashed'
+            },
+            itemStyle: {
+              color: '#e6a23c'
+            }
           }
         ]
       };
@@ -573,7 +795,7 @@ export default {
       this.problemChart.setOption(option);
 
       // 显示错误信息
-      this.$message.error('获取题目完成情况数据失败，请联系管理员');
+      this.$message.error(errorMsg);
     },
 
     // 调整图表大小
