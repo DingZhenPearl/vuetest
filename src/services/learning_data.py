@@ -10,20 +10,22 @@ import sys
 import json
 import io
 import mysql.connector
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from decimal import Decimal
 
 # 设置标准输出和标准错误的编码为UTF-8
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
-# 自定义JSON编码器，处理Decimal和datetime类型
+# 自定义JSON编码器，处理Decimal、datetime和date类型
 class CustomJSONEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, Decimal):
             return float(obj)
         if isinstance(obj, datetime):
             return obj.strftime('%Y-%m-%d %H:%M:%S')
+        if isinstance(obj, date):
+            return obj.strftime('%Y-%m-%d')
         return super(CustomJSONEncoder, self).default(obj)
 
 def get_db_connection():

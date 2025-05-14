@@ -4,15 +4,10 @@
     <div class="main-content">
       <div class="page-header">
         <h1>个性化学习分析</h1>
-        <p class="subtitle">基于您的学习行为和表现，为您提供个性化学习建议</p>
+        <p class="subtitle">基于您的学习行为和表现，使用大模型为您提供个性化学习建议</p>
       </div>
 
-      <!-- 加载状态 -->
-      <div v-if="isLoading" class="loading-container">
-        <el-skeleton :rows="10" animated />
-      </div>
-
-      <div v-else class="analysis-content">
+      <div class="analysis-content">
         <!-- 错误信息显示区域 -->
         <el-alert
           v-if="hasError"
@@ -25,7 +20,18 @@
         />
 
         <!-- 顶部统计卡片 -->
-        <el-row :gutter="20" class="stats-cards">
+        <div v-if="isLoadingStats" class="loading-stats">
+          <el-skeleton :rows="1" animated>
+            <template #template>
+              <el-row :gutter="20">
+                <el-col :xs="24" :sm="12" :md="6" v-for="i in 4" :key="i">
+                  <el-skeleton-item variant="p" style="height: 80px" />
+                </el-col>
+              </el-row>
+            </template>
+          </el-skeleton>
+        </div>
+        <el-row v-else :gutter="20" class="stats-cards">
           <el-col :xs="24" :sm="12" :md="6" v-for="stat in overallStats" :key="stat.title">
             <el-card shadow="hover" :body-style="{ padding: '20px' }">
               <div class="stat-card">
@@ -89,7 +95,18 @@
         </el-card>
 
         <!-- 学习进度和表现 -->
-        <el-row :gutter="20" class="performance-section">
+        <div v-if="isLoadingCharts" class="loading-charts">
+          <el-skeleton :rows="1" animated>
+            <template #template>
+              <el-row :gutter="20">
+                <el-col :xs="24" :md="12" v-for="i in 2" :key="i">
+                  <el-skeleton-item variant="p" style="height: 300px" />
+                </el-col>
+              </el-row>
+            </template>
+          </el-skeleton>
+        </div>
+        <el-row v-else :gutter="20" class="performance-section">
           <el-col :xs="24" :md="12">
             <el-card class="analysis-card">
               <template #header>
@@ -117,9 +134,16 @@
           <template #header>
             <div class="card-header">
               <span>学习行为分析</span>
+              <el-button type="primary" size="small" @click="refreshBehaviorAnalysis" :loading="isLoadingBehaviorAnalysis">
+                更新分析
+              </el-button>
             </div>
           </template>
-          <div v-if="learningBehaviorAnalysis" class="behavior-analysis">
+          <!-- 局部加载状态 -->
+          <div v-if="isLoadingBehaviorAnalysis" class="loading-behavior-analysis">
+            <el-skeleton :rows="6" animated />
+          </div>
+          <div v-else-if="learningBehaviorAnalysis" class="behavior-analysis">
             <div class="analysis-section">
               <h3>学习模式分析</h3>
               <p>{{ learningBehaviorAnalysis.pattern }}</p>
@@ -158,8 +182,10 @@ export default {
   },
   data() {
     return {
-      isLoading: true,
+      isLoadingStats: true,
       isLoadingRecommendations: true,
+      isLoadingBehaviorAnalysis: false,
+      isLoadingCharts: true,
       studentId: '',
       hasError: false,
       errorTitle: '',
@@ -196,7 +222,6 @@ export default {
   },
   methods: {
     async initData() {
-      this.isLoading = true
       // 重置错误状态
       this.hasError = false
       this.errorTitle = ''
@@ -208,83 +233,88 @@ export default {
 
       if (!this.studentId) {
         this.showError('未找到学生信息', '请先完善个人资料')
-        this.isLoading = false
+        this.isLoadingStats = false
+        this.isLoadingRecommendations = false
+        this.isLoadingCharts = false
         return
       }
 
       try {
-        // 加载学习数据
-        await this.loadLearningData()
-
-        // 加载个性化推荐
-        await this.loadRecommendations()
-
-        // 初始化图表
-        this.$nextTick(() => {
-          this.initCharts()
-        })
+        // 并行加载各部分数据
+        await Promise.all([
+          this.loadStats(),
+          this.loadRecommendations(),
+          this.loadBehaviorAnalysis(),
+          this.loadChartData()
+        ])
       } catch (error) {
         console.error('加载学习分析数据失败:', error)
         this.showError('加载学习分析数据失败', error.message || '未知错误')
-      } finally {
-        this.isLoading = false
       }
     },
-    async loadLearningData() {
+    // 加载统计数据
+    async loadStats() {
+      this.isLoadingStats = true
       try {
-        // 获取编程题目完成状态
-        try {
-          console.log('正在获取学生编程统计数据，学生ID:', this.studentId)
-          const codingResponse = await axios.get(`/api/coding/stats/${encodeURIComponent(this.studentId)}`)
-          const codingData = codingResponse.data
-          console.log('收到编程统计数据:', codingData)
+        console.log('正在获取学生编程统计数据，学生ID:', this.studentId)
+        const codingResponse = await axios.get(`/api/coding/stats/${encodeURIComponent(this.studentId)}`)
+        const codingData = codingResponse.data
+        console.log('收到编程统计数据:', codingData)
 
-          if (codingData.success && codingData.data) {
-            // 更新统计数据
-            this.updateStats(codingData.data)
-          } else {
-            console.warn('编程统计数据获取失败或为空:', codingData.message || '未知原因')
-            // 显示错误信息
-            this.showError('编程统计数据获取失败', codingData.message || '未知原因')
-            throw new Error(codingData.message || '编程统计数据获取失败')
-          }
-        } catch (codingError) {
-          console.error('获取编程统计数据失败:', codingError)
+        if (codingData.success && codingData.data) {
+          // 更新统计数据
+          this.updateStats(codingData.data)
+        } else {
+          console.warn('编程统计数据获取失败或为空:', codingData.message || '未知原因')
           // 显示错误信息
-          this.showError('编程统计数据获取失败', codingError.message || '未知错误')
-          throw codingError
-        }
-
-        // 获取学习行为分析数据
-        try {
-          console.log('正在获取学习行为分析数据，学生ID:', this.studentId)
-          const behaviorResponse = await axios.get(`/api/learning/behavior-analysis/${encodeURIComponent(this.studentId)}`)
-          const behaviorData = behaviorResponse.data
-          console.log('收到学习行为分析数据:', behaviorData)
-
-          if (behaviorData.success && behaviorData.data) {
-            // 更新学习行为分析
-            this.updateLearningBehaviorAnalysis(behaviorData.data)
-
-            // 更新图表数据
-            this.updateChartData(behaviorData.data)
-          } else {
-            console.warn('学习行为分析数据获取失败:', behaviorData.message || '未知原因')
-            // 显示错误信息
-            this.showError('学习行为分析数据获取失败', behaviorData.message || '未知原因')
-            throw new Error(behaviorData.message || '学习行为分析数据获取失败')
-          }
-        } catch (behaviorError) {
-          console.error('获取学习行为分析失败:', behaviorError)
-          // 显示错误信息
-          this.showError('学习行为分析数据获取失败', behaviorError.message || '未知错误')
-          throw behaviorError
+          this.showError('编程统计数据获取失败', codingData.message || '未知原因')
         }
       } catch (error) {
-        console.error('获取学习数据失败:', error)
+        console.error('获取编程统计数据失败:', error)
         // 显示错误信息
-        this.showError('获取学习数据失败', error.message || '未知错误')
-        throw error
+        this.showError('编程统计数据获取失败', error.message || '未知错误')
+      } finally {
+        this.isLoadingStats = false
+      }
+    },
+
+    // 加载行为分析数据
+    async loadBehaviorAnalysis() {
+      try {
+        console.log('正在获取学习行为分析数据，学生ID:', this.studentId)
+        await this.fetchBehaviorAnalysis(false)
+      } catch (error) {
+        console.error('获取学习行为分析失败:', error)
+        // 显示错误信息
+        this.showError('学习行为分析数据获取失败', error.message || '未知错误')
+      }
+    },
+
+    // 加载图表数据
+    async loadChartData() {
+      this.isLoadingCharts = true
+      try {
+        console.log('正在获取图表数据，学生ID:', this.studentId)
+        const behaviorResponse = await axios.get(`/api/learning/behavior-analysis/${encodeURIComponent(this.studentId)}`)
+        const behaviorData = behaviorResponse.data
+
+        if (behaviorData.success && behaviorData.data) {
+          // 更新图表数据
+          this.updateChartData(behaviorData.data)
+
+          // 初始化图表
+          this.$nextTick(() => {
+            this.initCharts()
+          })
+        } else {
+          console.warn('图表数据获取失败:', behaviorData.message || '未知原因')
+          this.showError('图表数据获取失败', behaviorData.message || '未知原因')
+        }
+      } catch (error) {
+        console.error('获取图表数据失败:', error)
+        this.showError('获取图表数据失败', error.message || '未知错误')
+      } finally {
+        this.isLoadingCharts = false
       }
     },
     async loadRecommendations() {
@@ -614,8 +644,65 @@ export default {
         this.showError('渲染表现图表时出错', error.message || '未知错误')
       }
     },
-    refreshRecommendations() {
-      this.loadRecommendations()
+    async refreshRecommendations() {
+      try {
+        this.isLoadingRecommendations = true
+        await axios.get(`/api/learning/recommendations/${encodeURIComponent(this.studentId)}?refresh=true`)
+        await this.loadRecommendations()
+        this.$message.success('推荐已更新')
+      } catch (error) {
+        console.error('刷新推荐失败:', error)
+        this.$message.error('刷新推荐失败: ' + (error.message || '未知错误'))
+      } finally {
+        this.isLoadingRecommendations = false
+      }
+    },
+
+    // 获取学习行为分析数据
+    async fetchBehaviorAnalysis(showLoading = true) {
+      try {
+        if (showLoading) {
+          this.isLoadingBehaviorAnalysis = true
+        } else {
+          // 初始加载时也设置加载状态
+          this.isLoadingBehaviorAnalysis = true
+        }
+
+        const behaviorResponse = await axios.get(`/api/learning/behavior-analysis/${encodeURIComponent(this.studentId)}`)
+        const behaviorData = behaviorResponse.data
+        console.log('收到学习行为分析数据:', behaviorData)
+
+        if (behaviorData.success && behaviorData.data) {
+          // 更新学习行为分析
+          this.updateLearningBehaviorAnalysis(behaviorData.data)
+
+          if (showLoading) {
+            this.$message.success('学习行为分析已更新')
+          }
+        } else {
+          console.warn('学习行为分析数据获取失败:', behaviorData.message || '未知原因')
+          // 显示错误信息
+          this.showError('学习行为分析数据获取失败', behaviorData.message || '未知原因')
+          throw new Error(behaviorData.message || '学习行为分析数据获取失败')
+        }
+      } catch (error) {
+        console.error('获取学习行为分析失败:', error)
+        if (showLoading) {
+          this.$message.error('获取学习行为分析失败: ' + (error.message || '未知错误'))
+        }
+        throw error
+      } finally {
+        this.isLoadingBehaviorAnalysis = false
+      }
+    },
+
+    // 刷新学习行为分析
+    async refreshBehaviorAnalysis() {
+      try {
+        await this.fetchBehaviorAnalysis(true)
+      } catch (error) {
+        console.error('刷新学习行为分析失败:', error)
+      }
     },
     startLearning(recommendation) {
       console.log('开始学习推荐内容:', recommendation)

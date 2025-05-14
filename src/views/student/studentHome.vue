@@ -5,13 +5,6 @@
 
     <!-- 主内容区 -->
     <div class="main-content">
-      <!-- 加载状态 -->
-      <t-loading :loading="isLoading" fullscreen>
-        <template #tip>
-          <span>正在加载数据...</span>
-        </template>
-      </t-loading>
-
       <!-- 个人信息提示卡片 -->
       <t-alert v-if="!isLoading && !hasProfileInfo" theme="warning" message="请完善个人信息" class="profile-alert">
         <template #description>
@@ -74,23 +67,29 @@
                 <i class="el-icon-refresh"></i> 刷新
               </t-button>
             </template>
-            <div v-if="recommendations.length === 0" class="empty-recommendations">
-              <p>暂无学习推荐，请先完成一些习题</p>
-            </div>
-            <div v-else class="recommendation-list">
-              <div v-for="(item, index) in recommendations" :key="index" class="recommendation-item">
-                <div class="recommendation-icon">
-                  <i :class="getRecommendationIcon(item.type)"></i>
-                </div>
-                <div class="recommendation-content">
-                  <h4>{{ item.title }}</h4>
-                  <p>{{ item.description }}</p>
-                  <t-button theme="primary" size="small" variant="outline" @click="navigateTo(item.route)">
-                    立即学习
-                  </t-button>
+            <!-- 局部加载状态 -->
+            <t-loading :loading="isLoadingRecommendations" overlay>
+              <template #tip>
+                <span>正在获取推荐...</span>
+              </template>
+              <div v-if="recommendations.length === 0" class="empty-recommendations">
+                <p>暂无学习推荐，请先完成一些习题</p>
+              </div>
+              <div v-else class="recommendation-list">
+                <div v-for="(item, index) in recommendations" :key="index" class="recommendation-item">
+                  <div class="recommendation-icon">
+                    <i :class="getRecommendationIcon(item.type)"></i>
+                  </div>
+                  <div class="recommendation-content">
+                    <h4>{{ item.title }}</h4>
+                    <p>{{ item.description }}</p>
+                    <t-button theme="primary" size="small" variant="outline" @click="navigateTo(item.route)">
+                      立即学习
+                    </t-button>
+                  </div>
                 </div>
               </div>
-            </div>
+            </t-loading>
           </t-card>
 
           <!-- 最近活动 -->
@@ -137,6 +136,7 @@ export default {
     return {
       hasProfileInfo: false,
       isLoading: true,
+      isLoadingRecommendations: false,
       userName: '',
       studentId: '',
       currentDate: '',
@@ -453,7 +453,7 @@ export default {
     async updateRecommendationsCache(showLoading = true) {
       try {
         if (showLoading) {
-          this.$message.info('正在获取推荐...');
+          this.isLoadingRecommendations = true;
         }
 
         const response = await axios.get(`/api/learning/recommendations/${this.studentId}`);
@@ -485,6 +485,10 @@ export default {
           this.$message.error('获取推荐失败: ' + (error.message || '未知错误'));
         }
         this.recommendations = [];
+      } finally {
+        if (showLoading) {
+          this.isLoadingRecommendations = false;
+        }
       }
     },
 
