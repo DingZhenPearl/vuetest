@@ -1040,7 +1040,23 @@ export default {
       problemData.forEach(item => {
         problems.push(item.problem_title);
         successRates.push(parseFloat(item.success_rate || 0).toFixed(1));
-        avgTimes.push(parseFloat(item.avg_solution_time || 0).toFixed(1));
+
+        // 处理平均解题时间，如果为null或undefined则设为0
+        let avgTime = item.avg_solution_time;
+        if (avgTime === null || avgTime === undefined) {
+          avgTime = 0;
+        } else {
+          // 确保是数字并限制在合理范围内
+          avgTime = parseFloat(avgTime);
+          if (isNaN(avgTime) || avgTime < 0) {
+            avgTime = 0;
+          } else if (avgTime > 10800) {
+            // 如果超过3小时(10800秒)，限制为10800
+            avgTime = 10800;
+          }
+        }
+        // 保留整数秒数
+        avgTimes.push(Math.round(avgTime));
       });
 
       // 创建图表
@@ -1053,10 +1069,41 @@ export default {
             crossStyle: {
               color: '#999'
             }
+          },
+          formatter: function(params) {
+            let result = params[0].name + '<br/>';
+            params.forEach(param => {
+              let marker = param.marker;
+              let seriesName = param.seriesName;
+              let value = param.value;
+
+              // 为平均解题时间格式化显示
+              if (seriesName === '平均解题时间(秒)') {
+                if (value >= 3600) {
+                  // 大于1小时，显示为小时
+                  const hours = Math.floor(value / 3600);
+                  const mins = Math.floor((value % 3600) / 60);
+                  const secs = Math.round(value % 60);
+                  value = hours + '小时' + (mins > 0 ? mins + '分' : '') + (secs > 0 ? secs + '秒' : '');
+                } else if (value >= 60) {
+                  // 大于1分钟，显示为分钟
+                  const mins = Math.floor(value / 60);
+                  const secs = Math.round(value % 60);
+                  value = mins + '分' + (secs > 0 ? secs + '秒' : '');
+                } else {
+                  value = value + '秒';
+                }
+              } else if (seriesName === '成功率') {
+                value = value + '%';
+              }
+
+              result += marker + ' ' + seriesName + ': ' + value + '<br/>';
+            });
+            return result;
           }
         },
         legend: {
-          data: ['成功率', '平均解题时间(分钟)']
+          data: ['成功率', '平均解题时间(秒)']
         },
         grid: {
           left: '3%',
@@ -1089,10 +1136,24 @@ export default {
           },
           {
             type: 'value',
-            name: '时间(分钟)',
+            name: '时间(秒)',
             min: 0,
+            // 不设置max，让其自适应数据范围
             axisLabel: {
-              formatter: '{value}分钟'
+              formatter: function(value) {
+                if (value >= 3600) {
+                  // 大于1小时，显示为小时
+                  const hours = Math.floor(value / 3600);
+                  const mins = Math.floor((value % 3600) / 60);
+                  return hours + '小时' + (mins > 0 ? mins + '分' : '');
+                } else if (value >= 60) {
+                  // 大于1分钟，显示为分钟
+                  const mins = Math.floor(value / 60);
+                  const secs = value % 60;
+                  return mins + '分' + (secs > 0 ? secs + '秒' : '');
+                }
+                return value + '秒';
+              }
             }
           }
         ],
@@ -1103,7 +1164,7 @@ export default {
             data: successRates
           },
           {
-            name: '平均解题时间(分钟)',
+            name: '平均解题时间(秒)',
             type: 'line',
             yAxisIndex: 1,
             data: avgTimes

@@ -85,17 +85,25 @@ def analyze_learning_patterns(class_name=None):
         daily_trends = cursor.fetchall() or []
 
         # 2. 分析问题难度分布
+        # 使用edu_problem_solving_stats表中的time_spent_seconds字段计算平均解题时间
+        # 这个字段记录了学生在解题过程中实际花费的时间（秒），更准确地反映了解题难度
         cursor.execute(f"""
             SELECT
-                problem_id,
-                MAX(problem_title) as problem_title,
+                cs.problem_id,
+                MAX(cs.problem_title) as problem_title,
                 COUNT(*) as attempt_count,
-                COUNT(DISTINCT student_id) as student_count,
-                SUM(CASE WHEN submit_result = 'success' THEN 1 ELSE 0 END) / COUNT(*) * 100 as success_rate,
-                AVG(TIMESTAMPDIFF(MINUTE, first_view_time, submission_time)) as avg_solution_time
+                COUNT(DISTINCT cs.student_id) as student_count,
+                SUM(CASE WHEN cs.submit_result = 'success' THEN 1 ELSE 0 END) / COUNT(*) * 100 as success_rate,
+                AVG(CASE
+                    WHEN ps.time_spent_seconds > 0
+                    AND ps.time_spent_seconds <= 10800  -- 3小时 = 10800秒
+                    THEN ps.time_spent_seconds  -- 直接使用秒数，不转换为分钟
+                    ELSE NULL
+                END) as avg_solution_time
             FROM edu_coding_submissions cs
+            LEFT JOIN edu_problem_solving_stats ps ON cs.problem_id = ps.problem_id AND cs.student_id = ps.student_id
             {where_clause}
-            GROUP BY problem_id
+            GROUP BY cs.problem_id
             ORDER BY success_rate ASC
         """, params)
 
