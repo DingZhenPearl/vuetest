@@ -7,7 +7,7 @@
         <div class="header-actions">
           <div class="class-selector-container">
             <span class="selector-label">当前班级：</span>
-            <el-select v-model="selectedClass" placeholder="选择班级" @change="loadData">
+            <el-select v-model="selectedClass" placeholder="选择班级" @change="loadData" style="width: 180px;">
               <el-option
                 v-for="item in classList"
                 :key="item"
@@ -1556,13 +1556,16 @@ export default {
 .class-selector-container {
   display: flex;
   align-items: center;
-  margin-right: 10px;
+  margin-right: 15px;
+  min-width: 250px;
 }
 
 .selector-label {
-  margin-right: 8px;
+  margin-right: 10px;
   font-size: 14px;
+  font-weight: 500;
   color: #606266;
+  white-space: nowrap;
 }
 
 .loading-container {
